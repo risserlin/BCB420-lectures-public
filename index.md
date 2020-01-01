@@ -1,15 +1,6 @@
-## Hello github page
+## BCB420 - lectures
 
-### Link
-
-Note the relative link starting with a slash before the html file.
-
-The index.md is used to customize the github page's home page, 
-The following link directs to the slide.
-
-Code: `[slide link](/lecture1.html)`
-
-Result:
+### Current lecture 
 
 [slide link](/lecture1.html)
 
