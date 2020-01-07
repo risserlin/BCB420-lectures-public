@@ -38,7 +38,7 @@ TA : Owen Whitley
 * Where to find all information pertaining to the course<br>
 * Quiz - January 21,2020 (Mock Quiz - January 14)<br>
 * Wiki and Journal<br>
-* Assignment #1 - Due January 28, 2020<br>
+* Assignment #1 - Due February 4, 2020<br>
 * Docker<br>
 
 ---
@@ -194,7 +194,7 @@ class: left
 class: left
 # Assignment #1
 
-* **Due January 28,2020 **
+* **Due February 4,2020 **
 * Outline on the course wiki [here](https://github.com/bcb420-2020/General_Course_Info/wiki/Assignment%231)<br><br>
 * **Overview** : 
   * <font size=12>Choose a dataset,</font> 
