@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>BCB420 - Computational Systems Biology</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ruth Isserlin" />
+    <meta name="date" content="2020-01-22" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link rel="stylesheet" href="libs/example.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# BCB420 - Computational Systems Biology
+## Lecture 3 - Expression Data
+### Ruth Isserlin
+### 2020-01-22
+
+---
+
+
+# Before we start
+
+* Docker - feed back, questions?
+  * Takes forever to build.  So now that we have tried out creating our own docker I have set up a base image you can use for your assignments
+  * [docker hub bcb420-base-image](https://hub.docker.com/repository/docker/risserlin/bcb420-base-image) -- will update image in the next few days because bioc is changing the way they manage their images.  see [here](https://stat.ethz.ch/pipermail/bioc-devel/2020-January/016026.html)
+  * **Windows home** - upgrade to Windows education&lt;br&gt;&lt;br&gt;
+
+```r
+docker run -e PASSWORD=changeit --rm -p 8787:8787 risserlin/bcb420-base-image
+```
+
+
+---
+
+
+class: middle
+
+# Overview
+
+* &lt;font size=6&gt;What is Expression Analysis and what is it good for?&lt;/font&gt;&lt;br&gt;
+* &lt;font size=6&gt;Types of expression data.&lt;/font&gt;&lt;br&gt;
+* &lt;font size=6&gt;Where can I find expression data?&lt;/font&gt;&lt;br&gt;
+* &lt;font size=6&gt;Tools for mining the data - GEOMetadb package&lt;/font&gt;&lt;br&gt;
+* &lt;font size=6&gt;Delving into the different platforms available.&lt;/font&gt;&lt;br&gt;
+* &lt;font size=6&gt;Trying to find a dataset of interest&lt;/font&gt;&lt;br&gt;
+
+---
+
+# Gene Expression Analysis
+
+## Gene Expression, what is it and what is it good for?
+
+* Genomics - genome scale analysis
+* Instead of a handul of genes we can now look at 1000s, and 10000s genes.  But what can we do with all those signals?
+* How can we translate these copious amounts of signals into meaningful insights and conclusions?
+
+???
+When we talk about genomics we mean many different things.  Ultimately it is the study of an individual genome but it has also become synonymouse with a genome-wide study.
+---
+
+## Course Goals
+So, what are **we** going to be covering during this course?&lt;br&gt;
+![](./images/course_overview_flowchart.png)
+
+* **Reminder - Assignment #1 is on the course wiki.  Get started!**
+
+
+---
+
+# Types of expression data
+
+* **Microarray expression data** - 
+  * for overview read - Bumgarner R. (2013). [Overview of DNA microarrays: types, applications, and their future. Current protocols in molecular biology](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4011503/#!po=31.4815), Chapter 22
+* **Bulk RNASeq expression data** - 
+  * Stark R, Grzelak M, Hadfield J. [RNA sequencing: the teenage years. Nat Rev
+Genet](https://www.nature.com/articles/s41576-019-0150-2). 2019 Nov;20(11):631-656
+  * Lun A.T.L., Chen Y., Smyth G.K. (2016) [It’s DE-licious: A Recipe for Differential Expression Analyses of RNA-seq Experiments Using Quasi-Likelihood Methods in edgeR](https://link.springer.com/protocol/10.1007%2F978-1-4939-3578-9_19#citeas). In: Mathé E., Davis S. (eds) Statistical Genomics. Methods in Molecular Biology, vol 1418. Humana Press, New York, NY
+  * Anders, S., McCarthy, D., Chen, Y. et al. [Count-based differential expression analysis of RNA sequencing data using R and Bioconductor](https://www.nature.com/articles/nprot.2013.099). Nat Protoc 8, 1765–1786 (2013) doi:10.1038/nprot.2013.099
+* **Single Cell RNAseq expression data**
+  * Hwang, B., Lee, J.H. &amp; Bang, D. [Single-cell RNA sequencing technologies and bioinformatics pipelines](https://www.nature.com/articles/s12276-018-0071-8). Exp Mol Med 50, 96 (2018)
+  * Vieth, B., Parekh, S., Ziegenhain, C. et al. [A systematic evaluation of single cell RNA-seq analysis pipelines](https://www.nature.com/articles/s41467-019-12266-7). Nat Commun 10, 4667 (2019) 
+* **Protein Expression data using Mass spectrometry**
+
+
+---
+# Microarray expression - Basics
+
+![](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4011503/bin/nihms-563981-f0001.jpg)
+
+Bumgarner R. (2013). [Overview of DNA microarrays: types, applications, and their future. Current protocols in molecular biology](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4011503/#!po=31.4815), Chapter 22, Unit–22.1.. doi:10.1002/0471142727.mb2201s101 - Figure 1
+
+
+???
+See the example for processing microarray data in the prepartory material. 
+
+---
+class: middle, center
+# Microarray expression Pipeline
+
+&lt;img src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4011503/bin/nihms-563981-f0003.jpg" width="62%" /&gt; 
+
+
+Bumgarner R. (2013). [Overview of DNA microarrays: types, applications, and their future. Current protocols in molecular biology](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4011503/#!po=31.4815), Chapter 22, Unit–22.1.. doi:10.1002/0471142727.mb2201s101 - Figure 3
+
+---
+
+# RNASeq Analysis - Basics
+
+&lt;img src="https://www.annualreviews.org/na101/home/literatum/publisher/ar/journals/content/biodatasci/2019/biodatasci.2019.2.issue-1/annurev-biodatasci-072018-021255/20190704/images/medium/bd020139.f1.gif" width="120%" /&gt; 
+
+
+Van den Berge, K. et al [RNA Sequencing Data: Hitchhiker's Guide to Expression Analysis](https://www.annualreviews.org/doi/full/10.1146/annurev-biodatasci-072018-021255). Annu. Rev. Biomed. Data Sci. 2:139-73
+
+???
+
+complementary DNA is generated from the isolated mRNA
+cDNA is sequenced
+and then aligned to the reference genome - using software like Tophat, Bowtie
+There are different aligners that generate different data types from this data. 
+alignments are further assembled and annotated. 
+RPKM is reads per kilobase per million mapped and FPKM is fragments per kilobase of transcript per million fragments mapped.
+
+---
+
+.center[&lt;font size=8&gt;** The Explosion of RNASeq analysis**&lt;/font&gt;]
+&lt;img src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4494749/bin/nihms689002f1.jpg" width="85%" /&gt; 
+
+Reuter JA, Spacek DV, Snyder MP. [High-throughput sequencing technologies](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4494749/#!po=1.31579). Mol Cell. 2015 May 21;58(4):586-97. doi: 10.1016/j.molcel.2015.05.004. PMID: 26000844; PMCID: PMC4494749.
+
+???
+Colored according to company.
+MiSeq -  fast, personal benchtop sequencer, with run times as low as 4 hours and outputs intended for targeted sequencing and sequencing of small genomes
+HiSeq 2500 - high-throughput applications
+- outputs of 1 Tb in 6 days. 
+
+---
+
+# Bulk RNASeq 
+
+* Multiple platforms (as seen on the previous slide)
+* Multiple types - short read, long read, direct read.  
+  * 95% of published RNASeq datasets comes from **short-read** illumina techonology
+* Lots of different parameters that need to be taken into account during experimental design:
+  * number of samples
+  * sample preparation - oligo-dt enrichment which enrichs for the polyA tail or ribosomal RNA depletion 
+  * read depth - the target number of sequence reads for each sample (generally 10-30 million reads per sample)
+  * read lengths - when using for differential expression we only need read lengths long enough to unambiguously identify a transcript.  Anything more than that is extra
+  * single- vs paired-end reads - again with differential expression we only care about the read counts for a given transcript so optimizing read coverage with paired-end reads is extra that isn't required. (Often comes down to cost though)
+
+---
+
+# Multiple phases of Bulk RNASeq analysis
+
+## Alignment and Assembly
+  * takes [FASTQ files](https://support.illumina.com/bulletins/2016/04/fastq-files-explained.html), which are generated by the sequencer (not quite but they are standard files), and maps them to the transcriptome.  
+  * Tools that rely on an reference genome include:
+    * [TopHat](https://ccb.jhu.edu/software/tophat/index.shtml), 
+    * [STAR](https://hbctraining.github.io/Intro-to-rnaseq-hpc-O2/lessons/03_alignment.html),
+    * [HISAT](http://www.ccb.jhu.edu/software/hisat/index.shtml)  
+  * example FASTQ file:
+    
+
+```r
+@SIM:1:FCX:1:15:6329:1045 1:N:0:2
+TCGCACTCAACGCCCTGCATATGACAAGACAGAATC
++
+&lt;&gt;;##=&gt;&lt;9=AAAAAAAAAA9#:&lt;#&lt;;&lt;&lt;&lt;????#=
+```
+  * There are also tools that don't rely on a refernce genome - often used when a reference genome is not available or it is incomplete.
+
+---
+
+## Quantification
+
+  * Simplicistically we are counting up the number of reads associated with each gene.
+  * There are many different tools that perform quantification each with different strength and weaknesses:
+    * [RSEM](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-12-323) - generates transcript estimates
+    * [CuffLinks](https://github.com/cole-trapnell-lab/cufflinks) - generates transcript estimates
+    * [MMSeq](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2011-12-2-r13) - generates transcript estimates
+    * [HTSeq](https://htseq.readthedocs.io/en/release_0.11.1/) - generates read counts
+  * Unfortunately there are also many measures associated with RNASeq reads.  Some try to account for inherent variability caused by number of reads and length of transcripts/gene.
+    * RPKM/FPKM - read or fragments per kilobase million
+      * RPKM for individual gene = [read counts/(total number of reads in sample/1 000 000)]/ length of gene
+    * TPM - transcripts per million
+      * TPM for individual gene = [read counts/length of gene]/total number of read in sample/ 1000000)
+    * raw counts
+  * Within the community counts have come out as the preferrable metric to use when performing quantification with Bulk RNASeq 
+
+???
+how and what is counted depends on the algorithm used to quantify as different methods make different assumptions about isoforms, gaps, ambiguous/unambiguous reads...
+The difference between RPKM and FPKM is related the sequencing method.  RPKM is single end reads where fpkm is for paired end reads.
+Just cause counts are prefferred does not mean the rest is garbage...
+
+---
+## Normalization and Filtering
+
+  * As with any data set normalization and filtering help account for technical biases and sample issues.
+  * Some issues that arise with RNASeq data include:
+    * genes with low read adundances
+    * read depth/library size (RPKM tried to tackle this issue)
+    * transcript length (RPKM tired to tackle this issue)
+  * [Trimmed Mean of M-values](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-3-r25) - TMM, originally published in 2010. Incorporated into the edgeR package
+---
+
+.center[&lt;font size=8&gt;**RNASeq Expression Analysis Pipeline**&lt;/font&gt;]
+
+![](https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs41576-019-0150-2/MediaObjects/41576_2019_150_Fig2_HTML.png)
+
+Stark, R., Grzelak, M. &amp; Hadfield, J. [RNA sequencing: the teenage years](https://www.nature.com/articles/s41576-019-0150-2). Nat Rev Genet 20, 631–656 (2019) doi:10.1038/s41576-019-0150-2
+
+???
+Can be divided into 4 main phases Alignment/assembly, quantification, Fitering/normalization, differential expression analysis 
+
+
+---
+
+# Single Cell RNASeq
+  * Specialized version of bulk RNASeq
+  * Uses a lot of the same techonologies as bulk RNASeq - **but on a much large scale**
+  * For data check out the [Single Cell portal - created by the broad Institute](https://singlecell.broadinstitute.org/)
+  * Check out these great courses that go in depth with scRNASeq
+    * https://github.com/broadinstitute/2019_scWorkshop
+    * https://scrnaseq-course.cog.sanger.ac.uk/website/index.html
+
+---
+# Protein Expression
+
+* Protein identification and quantification via Mass spectrometry
+
+&lt;img src="https://els-jbs-prod-cdn.literatumonline.com/cms/attachment/cdb20d7f-724f-432d-9cc4-a1050f047496/gr1.jpg" width="85%" /&gt; 
+
+Kolker E, Higdon R, Hogan JM. [Protein identification and expression analysis
+using mass spectrometry](https://www.sciencedirect.com/science/article/pii/S0966842X0600076X?via%3Dihub). Trends Microbiol. 2006 May;14(5):229-35. Epub 2006 Apr
+17. Review. PubMed PMID: 16603360
+
+---
+
+# GEO
+
+* Gene expression omnibus
+
+.center[&lt;img src="./images/geo_website.png" width="85%" /&gt;]
+
+&lt;font size=10&gt;With all this data how do we figure out what to use?&lt;/font&gt; &lt;br&gt;&lt;br&gt;
+
+???
+loads and loads of databases and there are loads and loads of datasets contained in each one of these datasets. 
+This translates into loads of data for us to explore. 
+
+---
+
+# GEO Datatypes
+
+.center[&lt;img src="https://www.ncbi.nlm.nih.gov/geo/img/geo_overview.jpg" width="85%" /&gt;]
+
+*figure source:[GEO overview](https://www.ncbi.nlm.nih.gov/geo/info/overview.html)
+
+???
+Pop Quiz - what type of diagram is this? (Entity relationship diagram)
+What do the symbols represent?
+
+---
+#GEO Datatypes - cont'd
+
+--
+
+**GSE - Series**&lt;br&gt;
+* A Series record links together a group of related Samples and provides a focal point and description of the whole study.&lt;br&gt;
+* Contains Tar archive of original raw data files, or processed sequence data files.
+
+--
+
+**GSM - Samples**&lt;br&gt;
+* A Sample record describes the conditions under which an individual Sample was handled, the manipulations it underwent, and the abundance measurement of each element derived from it. &lt;br&gt;
+* A Sample entity must reference only **one Platform** and may be included in multiple Series. &lt;br&gt;
+* Contains Original raw data file, or processed sequence data file (for example .Cel, CPM.txt, RPKM.txt ...)&lt;br&gt;
+
+---
+#GEO Datatypes - cont'd
+
+--
+
+**GPL - Platform**&lt;br&gt;
+* A summary description of the array or sequencer&lt;br&gt;
+* array-based Platforms contain a data table defining the array template.&lt;br&gt;
+* A Platform may reference many Samples that have been submitted by multiple submitters.&lt;br&gt;
+
+--
+
+**GDS - Datasets**&lt;br&gt;
+* Curated GSEs
+* same platform and calculated in the same manner (i.e background processing and normalization)
+* collection of biologically and statistically comparable GEO Samples
+* Not all submitted data are suitable for DataSet assembly - also there is a huge backlog so might take a long time for a series to get included in a dataset
+* Works will all the GEO advanced tools.
+
+--
+
+**Profiles**&lt;br&gt;
+* expression values for an individual gene across all Samples in a DataSet. &lt;br&gt;
+
+---
+# GEOmetadb
+
+* a package that make querying the metadata describing microarray experiments, platforms, and datasets easier.  Especially for R users. 
+* Based on a SQLite database that indexes all the GEO datatypes and the relationships between them.  GEO datatypes including:
+  * GEO samples (GSM)
+  * GEO platforms (GPL)
+  * GEO data series (GSE)
+  * curated GEO datasets (GDS)
+
+--
+
+
+```r
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("GEOmetadb", quietly = TRUE))
+    BiocManager::install("GEOmetadb")
+```
+
+???
+Pop quiz - what is the purpose of the requireNamespaces?
+The function requireNamespace() is useful because it does not produce an error when a package has not been installed. It simply returns TRUE if successful or FALSE if not. Therefore one can use the following code idiom in R scripts to avoid downloading the package every time the script is called.
+
+---
+
+#setting up GEOmetadb
+
+* First things first we need to do is get the meta data. 
+* The package doesn't download any of the expression data in GEO, just the meta data
+* **Disclaimer from the GEOmetadb vignettes - "We have faithfully parsed and maintained in GEO when creating GEOmetadb. This means that limitations inherent to GEO are also inherent in GEOmetadb. We have made no attempt to curate, semantically recode, or otherwise “clean up”" GEO; to do so would require significant resources, which we do not have."**
+
+
+
+```r
+if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
+```
+???
+
+Popquiz - what is the purpose of the if statement?
+
+---
+
+# GEO Meta data Entity Relationship Diagram
+
+.center[&lt;img src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2639278/bin/btn520f1.jpg" width="85%" /&gt;]
+
+Zhu Y, Davis S, Stephens R, Meltzer PS, Chen Y. [GEOmetadb: powerful
+alternative search engine for the Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2639278/). Bioinformatics. 2008 Dec 1;24(23):2798-800
+
+
+---
+
+# GEOmetadb DB version
+
+
+```r
+file.info('GEOmetadb.sqlite')
+```
+
+```
+##                        size isdir mode               mtime               ctime
+## GEOmetadb.sqlite 8811945984 FALSE  644 2020-01-11 19:19:25 2020-01-11 19:22:43
+##                                atime uid gid        uname grname
+## GEOmetadb.sqlite 2020-01-22 19:46:10 502  20 ruthisserlin  staff
+```
+
+--
+
+**Connect to our newly downloaded GEO meta data database**&lt;br&gt;
+* When you download the database using the function getSQLiteFile, by default it places the database file into your current working directory. If you plan on using across different projects you might want to specify the download location so you don't have download everytime for a new project. 
+
+```r
+con &lt;- dbConnect(SQLite(),'GEOmetadb.sqlite')
+```
+
+---
+# Check out the tables that are available
+
+```r
+geo_tables &lt;- dbListTables(con)
+geo_tables
+```
+
+```
+##  [1] "gds"               "gds_subset"        "geoConvert"       
+##  [4] "geodb_column_desc" "gpl"               "gse"              
+##  [7] "gse_gpl"           "gse_gsm"           "gsm"              
+## [10] "metaInfo"          "sMatrix"
+```
+
+---
+# Look at the details of an individual table
+
+```r
+dbListFields(con,'gse')
+```
+
+```
+##  [1] "ID"                   "title"                "gse"                 
+##  [4] "status"               "submission_date"      "last_update_date"    
+##  [7] "pubmed_id"            "summary"              "type"                
+## [10] "contributor"          "web_link"             "overall_design"      
+## [13] "repeats"              "repeats_sample_list"  "variable"            
+## [16] "variable_description" "contact"              "supplementary_file"
+```
+
+---
+# Run SQL queries
+
+```r
+results &lt;- dbGetQuery(con,'select * from gpl limit 5')
+knitr::kable(head(results[,1:5]), format = "html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; ID &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; title &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; gpl &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; status &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; submission_date &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SAGE:10:NlaIII:Homo sapiens &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; GPL4 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Public on Sep 28 2000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2000-09-28 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Dmel.testis.1.0 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; GPL5 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Public on Oct 08 2000 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2000-10-03 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SAGE:10:Sau3A:Homo sapiens &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; GPL6 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Public on Jan 04 2001 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2001-01-04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; NHGRI_Human_8K &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; GPL7 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Public on Jan 24 2001 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2001-01-08 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Cerebellargenexp &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; GPL8 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Public on Apr 18 2001 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2001-04-18 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+#Platforms
+
+* Let's take a more detailed look at all the different platforms.
+* How many are there?
+--
+
+```r
+num_platforms &lt;- dbGetQuery(con,'select count(*) from gpl')
+```
+--
+
+```r
+num_platforms
+```
+
+```
+##   count(*)
+## 1    20441
+```
+
+---
+# Platforms - cont'd
+
+* What other information can we get from the GPL table?
+
+--
+
+```r
+dbListFields(con,'gpl')
+```
+
+```
+##  [1] "ID"                   "title"                "gpl"                 
+##  [4] "status"               "submission_date"      "last_update_date"    
+##  [7] "technology"           "distribution"         "organism"            
+## [10] "manufacturer"         "manufacture_protocol" "coating"             
+## [13] "catalog_number"       "support"              "description"         
+## [16] "web_link"             "contact"              "data_row_count"      
+## [19] "supplementary_file"   "bioc_package"
+```
+
+---
+# Platforms - cont'd
+
+* How many different unique technologies are there?
+
+--
+
+
+```r
+uniq_tech &lt;- dbGetQuery(con,'select distinct technology from gpl')
+nrow(uniq_tech)
+```
+
+```
+## [1] 18
+```
+--
+We could print out the results:
+
+```r
+*knitr::kable(uniq_tech[1:2,], format = "html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; x &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; SAGE NlaIII &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; spotted DNA/cDNA &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+# Platforms - cont'd
+
+Unfortunately the whole table won't fit on my slide.  So instead:
+
+
+```r
+paste(uniq_tech$technology,collapse = ",")
+```
+
+```
+## [1] "SAGE NlaIII,spotted DNA/cDNA,SAGE Sau3A,in situ oligonucleotide,spotted oligonucleotide,antibody,MS,SARST,SAGE RsaI,other,MPSS,RT-PCR,oligonucleotide beads,mixed spotted oligonucleotide/cDNA,spotted peptide or protein,NA,high-throughput sequencing,tissue"
+```
+
+
+---
+# Platforms - cont'd
+
+* Hom many platforms are associated with each of those platforms?
+
+--
+
+
+```r
+num_uniq_tech &lt;- dbGetQuery(con,'select technology,count(*) from gpl group by technology')
+colnames(num_uniq_tech)[2] &lt;- "Num_Platforms"
+```
+
+* How can we visualize this?
+--
+
+  * We can print it out as a table (can't fit it into my slide)
+  
+--
+
+  * instead let's try and graph it. 
+
+```r
+plot_df &lt;- num_uniq_tech[!is.na(num_uniq_tech$technology),]
+p&lt;-ggplot(data=plot_df, aes(technology, Num_Platforms)) +
+  geom_col() + coord_flip()
+p
+```
+---
+# Platforms - cont'd
+
+![](lecture3_expression_analysis_files/figure-html/unnamed-chunk-18-1.png)&lt;!-- --&gt;
+
+???
+There are 18 main techonologies
+the majority of them as labelled as "high throughput sequencing" or "in situ oligonucleotide" - i.e RNASequencing or microarray
+
+---
+# Platforms - cont'd
+
+* Does this distribution change if we limit the platforms to only human
+
+--
+
+
+```r
+num_uniq_tech_human &lt;- dbGetQuery(con,'select technology,count(*) from gpl where organism = "human" group by technology')
+colnames(num_uniq_tech_human)[2] &lt;- "Num_Platforms"
+```
+
+--
+
+
+```r
+dim(num_uniq_tech_human)
+```
+
+```
+## [1] 0 2
+```
+
+Uh oh?  What did I do wrong there?
+
+---
+# Platforms - cont'd
+
+* How can I check what GEOmetadb is using for organisms? Why do I ask this?  What are the possibilities?
+
+--
+
+```r
+species_ids &lt;- dbGetQuery(con,'select organism,count(*) as num_plat from gpl where organism like "%homo%" group by organism order by num_plat desc')
+```
+
+--
+* Output the top 5 results:
+
+```r
+ knitr::kable(species_ids[1:5,], format = "html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; organism &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; num_plat &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Homo sapiens &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5037 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Homo sapiens;	Mus musculus;	Rattus norvegicus &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 112 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Homo sapiens;	Mus musculus &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 64 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Caenorhabditis elegans;	Drosophila melanogaster;	Danio rerio;	Homo sapiens;	Mus musculus;	Rattus norvegicus &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Homo sapiens;	Mus musculus;	Rattus norvegicus;	Human herpesvirus 1;	Human herpesvirus 5;	Murid herpesvirus 1;	Human herpesvirus 4;	BK polyomavirus;	JC polyomavirus;	Simian virus 40;	Human immunodeficiency virus 1;	Murid herpesvirus 4;	Human herpesvirus 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+???
+We could use proper name, taxonomy id
+---
+# Platforms - cont'd
+
+Let's get back to the original question.
+* Does this distribution change if we limit the platforms to only human?
+  * let's use only the platforms that are defined as "Homo sapiens" only.
+
+
+
+```r
+num_uniq_tech_human &lt;- dbGetQuery(con,'select technology,count(*) as num_plat from gpl where organism = "Homo sapiens" group by technology  order by num_plat desc')
+colnames(num_uniq_tech_human)[2] &lt;- "Num_Platforms"
+dim(num_uniq_tech_human)
+```
+
+```
+## [1] 15  2
+```
+
+  * How would the above statement be different if I didn't care whether it was just Homo sapiens or not?
+  
+--
+
+
+```r
+num_uniq_tech_contain_human &lt;- dbGetQuery(con,'select technology,count(*) as num_plat from gpl where organism like "%Homo sapiens%" group by technology order by num_plat desc')
+colnames(num_uniq_tech_contain_human)[2] &lt;- "Num_Platforms"
+dim(num_uniq_tech_contain_human)
+```
+
+```
+## [1] 15  2
+```
+
+---
+
+```r
+ knitr::kable(num_uniq_tech_human, format = "html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; technology &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Num_Platforms &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; in situ oligonucleotide &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2289 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; spotted DNA/cDNA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1139 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; spotted oligonucleotide &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 803 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; RT-PCR &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 310 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; oligonucleotide beads &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 187 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; other &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 136 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; spotted peptide or protein &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 75 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; high-throughput sequencing &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 56 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; antibody &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; SAGE NlaIII &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; MPSS &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; mixed spotted oligonucleotide/cDNA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; tissue &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; SAGE Sau3A &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; MS &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+---
+
+![](lecture3_expression_analysis_files/figure-html/unnamed-chunk-26-1.png)&lt;!-- --&gt;
+---
+
+![](lecture3_expression_analysis_files/figure-html/unnamed-chunk-27-1.png)&lt;!-- --&gt;
+
+---
+* How can we compare these two sets of results better?
+
+--
+
+  * let's merge the two sets of results that we have
+    * num_uniq_tech_contain_human
+    * num_uniq_tech_human_only
+
+```r
+uniq_tech_human &lt;- rbind(data.frame(num_uniq_tech_human, 
+                                    type="human only"),
+                         data.frame(num_uniq_tech_contain_human, 
+                                    type = "contains human"))
+```
+
+  * what does the above dataframe look like?
+--
+
+
+```r
+ knitr::kable(uniq_tech_human[c(1,2,16,17),], format = "html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; technology &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Num_Platforms &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; type &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; in situ oligonucleotide &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2289 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; human only &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; spotted DNA/cDNA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1139 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; human only &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; in situ oligonucleotide &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2332 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; contains human &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; spotted DNA/cDNA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1164 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; contains human &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+class: center, middle
+
+![](lecture3_expression_analysis_files/figure-html/unnamed-chunk-30-1.png)&lt;!-- --&gt;
+
+---
+* This actually doesn't answer the original question.
+* The original question was "Does the overall distribution change if we look for human only?"
+
+--
+* Add the data for non-organism specific query we did initially
+
+```r
+uniq_tech &lt;- rbind(uniq_tech_human,
+                         data.frame(num_uniq_tech, type = "All species"))
+```
+
+* Create the plot
+
+
+```r
+p&lt;-ggplot(data=uniq_tech, aes(technology, Num_Platforms, 
+                              fill=type)) +
+  geom_col(position="dodge", stat="identity") + 
+  coord_flip() + 
+  ggtitle("Platforms that contain human vs human only ") + 
+  theme(legend.position="bottom")
+p
+```
+
+---
+class: center, middle
+
+![](lecture3_expression_analysis_files/figure-html/unnamed-chunk-33-1.png)&lt;!-- --&gt;
+
+
+
+---
+#Platforms - conclusions
+* there are 18 main technology types defined for platforms.
+* unfortunately they are not very specific.  
+* Some platforms are attributed to multiple organisms - ie. organism is not a unique field in the GEO meta data
+* demonstrative exercise what we can do with the meta data available in the GEO metadb package.
+
+
+---
+#How to find datasets of interest?
+
+* Let's look for datasets that are:
+  * RNASeq data
+  * recent - within the last few years
+  * human
+  * minimum number of samples
+
+---
+
+# GEO Meta data Entity Relationship Diagram
+
+.center[&lt;img src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2639278/bin/btn520f1.jpg" width="85%" /&gt;]
+
+Zhu Y, Davis S, Stephens R, Meltzer PS, Chen Y. [GEOmetadb: powerful
+alternative search engine for the Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2639278/). Bioinformatics. 2008 Dec 1;24(23):2798-800
+
+---
+
+* Let's look for datasets that are:
+  * RNASeq data
+  
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+*            "  gpl.title LIKE '%HiSeq%' ",
+             sep=" ")
+```
+--
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+dim(rs)
+```
+
+```
+## [1] 32082     3
+```
+  
+---
+* Alternately, use the technology tag
+
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+*            "  gpl.technology = 'high-throughput sequencing' ",
+             sep=" ")
+```
+--
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+dim(rs)
+```
+
+```
+## [1] 46404     3
+```
+
+---
+
+* Let's look for datasets that are:
+  * RNASeq data
+  * human
+    
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+             "  gpl.title LIKE '%HiSeq%' AND ",
+*            " gpl.organism = 'Homo sapiens'",
+             sep=" ")
+```
+--
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+dim(rs)
+```
+
+```
+## [1] 12457     3
+```
+
+---
+
+
+* Let's look for datasets that are:
+  * RNASeq data
+  * human
+  * dataset from within 5 years
+  
+  
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+             " gse.submission_date",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+*            "  gse.submission_date &gt; '2015-01-01' AND",
+             "  gpl.organism LIKE '%Homo sapiens%' AND",
+             "  gpl.title LIKE '%HiSeq%' ",
+             sep=" ")
+```
+
+--
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+dim(rs)
+```
+
+```
+## [1] 10636     4
+```
+
+---
+
+* Let's look for datasets that are:
+  * RNASeq data
+  * human
+  * dataset from within 5 years
+  * related to ovarian cancer
+
+  
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+             " gse.submission_date",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+             "  gse.submission_date &gt; '2015-01-01' AND",
+*            "  gse.title LIKE '%ovarian cancer%' AND",
+             "  gpl.organism LIKE '%Homo sapiens%' AND",
+             "  gpl.title LIKE '%HiSeq%' ",sep=" ")
+```
+
+--
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+dim(rs)
+```
+
+```
+## [1] 35  4
+```
+
+---
+
+* Let's look for datasets that are:
+  * RNASeq data
+  * human
+  * dataset from within 5 years
+  * related to ovarian cancer
+  * supplementary file is counts - unfortunately not so straightforward
+  
+
+```r
+sql &lt;- paste("SELECT DISTINCT gse.title,gse.gse, gpl.title,",
+             " gse.submission_date,",
+*            " gse.supplementary_file",
+             "FROM",
+             "  gse JOIN gse_gpl ON gse_gpl.gse=gse.gse",
+             "  JOIN gpl ON gse_gpl.gpl=gpl.gpl",
+             "WHERE",
+             "  gse.submission_date &gt; '2015-01-01' AND",
+             "  gse.title LIKE '%ovarian cancer%' AND", 
+             "  gpl.organism LIKE '%Homo sapiens%' AND",
+             "  gpl.title LIKE '%HiSeq%' ",
+             "  ORDER BY gse.submission_date DESC",sep=" ")
+```
+
+---
+
+* We have added the supplementary file information.  
+* The file name itself is determined by the submitter.  What does that translate into?
+
+--
+*   **A free for all**
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+# break the file names up and just get the actual file name
+
+unlist(lapply(rs$supplementary_file,
+              FUN = function(x){x &lt;- unlist(strsplit(x,";")) ;
+              x &lt;- x[grep(x,pattern="txt",ignore.case = TRUE)];
+                tail(unlist(strsplit(x,"/")),n=1)})) [1:10]
+```
+
+```
+##  [1] "GSE115481_Feature_Counts_All.txt.gz"          
+##  [2] "GSE109981_FPKM.txt.gz"                        
+##  [3] "GSE101972_DESeq2_processed.txt.gz"            
+##  [4] "GSE95643_CARM1_CHIPseq_H3K27me3.WTvsKO.txt.gz"
+##  [5] "GSE77568_RNA_DMSO_JQ1_expression.txt.gz"      
+##  [6] "GSE75935_SK.txt.gz"                           
+##  [7] "GSE75935_SK.txt.gz"                           
+##  [8] "GSE71340_refseq_count_data.txt.gz"            
+##  [9] "GSE70072_HumanSerousCancer_rawCounts.txt.gz"  
+## [10] "GSE70073_GODL_rawCnt.txt.gz"
+```
+
+--
+* Let's try and get samples that have counts data.  
+
+```r
+rs &lt;- dbGetQuery(con,sql)
+counts_files &lt;- rs$supplementary_file[grep(rs$supplementary_file,
+                              pattern = "count",ignore.case = TRUE)]
+
+series_of_interest &lt;- rs$gse[grep(rs$supplementary_file,
+                              pattern = "count",ignore.case = TRUE)]
+
+shortened_filenames &lt;- unlist(lapply(counts_files,
+              FUN = function(x){x &lt;- unlist(strsplit(x,";")) ;
+              x &lt;- x[grep(x,pattern="count",ignore.case = TRUE)];
+                tail(unlist(strsplit(x,"/")),n=1)}))
+shortened_filenames
+```
+
+```
+## [1] "GSE115481_Feature_Counts_All.txt.gz"                               
+## [2] "GSE102908_SCT1.normCount.csv.gz"                                   
+## [3] "GSE97128_MBD2_R_vs_NR_promoter_-2000_-_+500bp_exon_Count_Data.xlsx"
+## [4] "GSE85453_Chip_vs_Input_ReadsCount_ScalF_RPKM_subtract.bw"          
+## [5] "GSE71340_refseq_count_data.txt.gz"                                 
+## [6] "GSE70072_HumanSerousCancer_rawCounts.txt.gz"
+```
+
+---
+# Series of Interest
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; series_of_interest &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Series Title &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; "&gt; GSE115481 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; "&gt; ERα-CtBP-mediated repression of Homologous-recombination repair in ovarian cancer improves chemo-sensitivity &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; "&gt; GSE102908 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; "&gt; RNAseq data from SCCOHT1 and OVCAR8 ovarian cancer cells treated with BET inhibitors &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; "&gt; GSE97128 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; "&gt; Methylome analysis of extreme chemoresponsive patients identifies novel markers of platinum sensitivity in high-grade serous ovarian cancer &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; "&gt; GSE85453 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; "&gt; CTCF promotes epithelial ovarian cancer metastasis by broadly controlling the expression of metastasis-associated genes &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; "&gt; GSE71340 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; "&gt; Neoadjuvant chemotherapy modulates T cell responses in high-grade serous ovarian cancer metastases &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;max-width: 0.25em; background-color: yellow !important;"&gt; GSE70072 &lt;/td&gt;
+   &lt;td style="text-align:left;min-width: 30em; background-color: yellow !important;"&gt; Apoptosis enhancing drugs overcome innate platinum resistance in CA125 negative tumor initiating populations of high grade serous ovarian cancer &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+# Get the Data
+
+
+```r
+sfiles = getGEOSuppFiles('GSE70072')
+
+fnames = rownames(sfiles)
+
+# there is only one supplemental file
+b2 = read.delim(fnames[1],header=TRUE)
+head(b2)
+```
+
+```
+##      ensembl75_id    gname Pt.A.CA125. Pt.A.CA125..1 pt.B.CA125. pt.B.CA125..1
+## 1 ENSG00000000003   TSPAN6        1858          1626        2711          2277
+## 2 ENSG00000000005     TNMD          20            28           0             0
+## 3 ENSG00000000419     DPM1         900          1090         746          1172
+## 4 ENSG00000000457    SCYL3         236           138         343           246
+## 5 ENSG00000000460 C1orf112         216           184         326           606
+## 6 ENSG00000000938      FGR           0            13           7            16
+##   Pt.C.CA125. pt.C.CA125. pt.D.CA125. pt.D.CA125..1 pt.E.CA125. pt.E.CA125..1
+## 1        5152        2622        6544          4457        2859          1828
+## 2           2           4           0             0           0             0
+## 3        1783        1164        2052          1909        1214          1029
+## 4         209         181         214           113         313           318
+## 5         310         108         211           114         146           184
+## 6         220         388           6             7         698           270
+##   pt.F.CA125. pt.F.CA125..1 pt.G.CA125. pt.G.CA125..1 pt.H.CA125. pt.H.CA125..1
+## 1        5641          9506        3487          3949        1676          1182
+## 2           0             0           1             2           0             0
+## 3         813          1390         712          1100        1191           853
+## 4         311           493         470           452         125            80
+## 5         410          1116         209           293         158           100
+## 6          23            58         218           171          10             2
+##   pt.I.CA125. pt.I.CA125..1 pt.J.CA125. pt.J.CA125..1
+## 1        2235          2521        2418          1201
+## 2           0             0           8             7
+## 3        1416          1329         993           544
+## 4         122           380          86            72
+## 5         165           838         102           101
+## 6           1             3           0           103
+```
+
+---
+
+# Next week
+
+&lt;font size=8&gt; We start processing the data ....&lt;/font&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"highlightSpans": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
