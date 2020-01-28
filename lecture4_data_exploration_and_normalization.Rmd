@@ -1,0 +1,1099 @@
+---
+title: "BCB420 - Computational Systems Biology"
+subtitle: "Lecture 4 - Exploring the data and basics of Normalization"
+author: "Ruth Isserlin"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: [default, ./libs/example.css]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      highlightSpans: true 
+      countIncrementalSlides: false
+---
+
+```{r include=FALSE}
+library(GEOquery)
+library(kableExtra)
+library(edgeR)
+```
+
+
+## Before we start
+
+## Assignment #1 
+  * <font size=5> Due February 4th, 2020 @ 20:00 </font>
+
+## What to hand in?
+  * **html rendered RNotebook** - you should be able to submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * **Do not check the data file into your repo!** - your code should download the data from GEO and generate a new, cleaned data file.
+  * Document your work and your code directly in the notebook.
+  * **Read the paper associated with your data!**
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+
+
+---
+
+## Lecture Overview
+
+### Data Exploration
+  * Data standards - what are they and what are they good for?
+  
+### Data Normalization
+  * Why do we need to normalize out data?
+  * What different types of distributions are there and why does this matter?
+  
+### Identifier Mapping
+  * BiomaRt example
+---
+
+## Recap of Last class
+
+  * We used the GEOmetadb Bioc package to query the GEO meta data to help find:
+    * RNASeq data
+    * human
+    * dataset from within 5 years
+    * related to ovarian cancer
+    * supplementary file is counts 
+    
+  * [GEOmetadb](https://www.bioconductor.org/packages/release/bioc/html/GEOmetadb.html) is a great package that basically indexes all the meta data in GEO which is very helpful when it isn't based on the strongest of controlled vocabularies. 
+  
+  * I narrowed my search down to the GEO identifier - GSE70072
+  
+  * So where do we start?
+--
+
+<font size=8> Read the paper! </font>
+
+---
+### Standards
+
+* [Functional Genomics Data Society](http://fged.org/) 
+  * MIAME - **M**inimum **I**nformation **A**bout a **M**icroarray **E**xperiment
+     * originally published in [Nature genetics in 2001](https://www.nature.com/articles/ng1201-365) and represented the guiding principles of the minimal information needed for submitting a dataset
+  * MINSEQE - **M**inimum **I**nformation about a high-throughput **SEQ**uencing **E**xperiment
+--
+
+* **GEO representation of MIAME and MINSEQE**
+<img src=./images/img_lecture4/MIAME_MINSEQE.png>
+---
+
+### Standards
+
+* [Functional Genomics Data Society](http://fged.org/) 
+  * MIAME - **M**inimum **I**nformation **A**bout a **M**icroarray **E**xperiment
+     * originally published in [Nature genetics in 2001](https://www.nature.com/articles/ng1201-365) and represented the guiding principles of the minimal information needed for submitting a dataset
+  * MINSEQE - **M**inimum **I**nformation about a high-throughput **SEQ**uencing **E**xperiment
+
+* **GEO representation of MIAME and MINSEQE**
+<img src=./images/img_lecture4/MIAME_MINSEQE_highlighted.png>
+---
+
+## NCBI GEO standards and services for microarray data
+
+ * An interesting read! [Nat Biotechnol. 2006 Dec; 24(12): 1471–1472.](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2270403/)
+ 
+ <img src=https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2270403/bin/nihms41580f1.jpg>
+
+
+---
+
+### Highlights from  NCBI GEO standards and services for microarray data
+
+the MIAME requirements have been criticized recently. The criticism stems, in part, from **different interpretations of the level of detail required to adequately report a microarray experiment**, and debates as to whether there is a genuine benefit to making microarray data public.
+
+"In June 2005, we released major database revisions that included specific provisions for all MIAME data elements. In 2006, mechanisms for provision of raw data were further streamlined, and several MIAME elements that were previously optional became mandatory. Yet, even with these advances, it is still possible for a submitter to supply data that do not strictly adhere to the MIAME requirements. The difficulty lies in the fact that MIAME is a **subjective set of guidelines** where the level of detail to report is open to interpretation and, thus, cannot be unequivocally validated or enforced by computational means."
+
+"each submission is inspected by curators for content integrity. GEO curators employ a pragmatic approach; we aim to ensure that sufficient information has been supplied to allow general interpretation of the experiment. Although encouraged, we have been less dogmatic with regards to provision of all-inclusive experimental protocols that would possibly permit practical replication of the entire experiment. Our reasoning is that provision of granulated experimental details adds a significant burden on the submitter, for (arguably) minimal real benefit for most end-users who are usually less concerned with this level of detail."
+
+???
+It more of a user driven resource. 
+A little bit of the honour system - these are the guidelines and we hope that submitters will abide by them but no one is forcing them to follow them. 
+If a reviewer has comments then submitter can easily make adjustments - but how often do you think reviewers go and download the data. 
+
+---
+
+## Standards - Proteomics
+
+[Proteomics Standards Initiative](http://www.psidev.info/) - PSI
+
+<img src=./images/img_lecture4/psi.png>
+
+???
+point out: the number of different branches of PSI that there are.
+they have standards and guidelines as well as controlled vocabularies.
+As a previous submitter the process is not easy but as you will see later in the course when we look at protein protein interaction networks the psi-mi format is very reach and easy to use computational.
+
+---
+
+## PSI-MI controlled vocabulary example
+
+<img src=./images/img_lecture4/psi_cv.png>
+
+???
+Active community that is still adding and adapting their controlled vocab and formats.  The base is mostly stable but as new techonologies arise or evolve they are incorporated. 
+Why is the proteomics community so different from the RNA community? not sure. There is a different amount of work and coordination associated with the different frameworks. 
+
+---
+
+Dataset = GSE70072
+
+--
+
+Title of the paper - 	Apoptosis enhancing drugs overcome innate platinum resistance in CA125 negative tumor initiating populations of high grade serous ovarian cancer
+
+--
+
+Very briefly in my own words:
+  * This study investigates two cell populations that they isolated from high-grade serous ovarian cancer, CA125+ve cells and CA125-ve cells.
+  * They hypothesize the CA125-ve cells are stem-like cells and are the cause for resurgence of cancer following treatment as the chemo drugs kills all the CA125+ve cells enriching for CA125-ve cells.
+  * They further demonstrate how a combination of two chemo drugs given together could help to kill both CA125+ve and CA125-ve cells.
+  
+<font size=8>What is the first thing that you might want to investigate or ask with the above summary?</font>
+
+---
+
+## CA125
+
+From the paper:
+* CA125 (Muc16) is a cell surface glycoprotein
+* highly expressed in high grade serous ovarian cancer and found in blood of effected patients.
+* a biomarker of the disease
+
+From Uniprot:
+* [Muc16](https://www.uniprot.org/uniprot/Q8WXI7) is not effective for stage I of the diseases so it isn't a good general marker of the disease.  
+* not specific enough for population screening
+* used for monitoring the disease.
+
+???
+Highlight the common problem of different names.  CA125 is not the recognized symbol of the gene.  Why are they using it? Probably historical.
+
+---
+## General experimental design
+
+<img src=https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4532886/bin/ncomms8956-f1.jpg width="80%">
+
+
+<font size=1>Janzen DM, Tiourin E, Salehi JA, Paik DY, Lu J, Pellegrini M, Memarzadeh S. [An
+apoptosis-enhancing drug overcomes platinum resistance in a tumour-initiating
+subpopulation of ovarian cancer](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4532886/). Nat Commun. 2015 Aug 3;6:7956. - Figure 1</font>
+---
+
+## Specific RNASeq experimental design
+
+<img src=./images/img_lecture4/RNASeq_design_fig3c.png>
+
+---
+
+### Specific RNASeq experimental design - Corrected 6 months after initial publication
+
+* Original publication - August 2015
+<img src=./images/img_lecture4/RNASeq_design_fig3c.png width="75%">
+* Corrigendum - February 2016 
+<img src=./images/img_lecture4/RNASeq_design_fig3c_redo.png width="75%">
+
+---
+### Error!
+* 341,056 of the 730,620 expression values were inadvertently paired with incorrect gene names. 
+* the DNA repair and apoptosis genes did **not** show a statistically significant expression difference as first reported.
+* Although, this error did not effect their conclusions on the different treatment models they introduced just the possible mechanism that they proposed.
+
+<font size=7>Lesson Learned - Identifer mapping is important and the basis for all down stream analysis so we need to get it right!</font>
+
+---
+## Data Exploration
+
+* First things first get the GEO description of your dataset.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+gse <- getGEO("GSE70072",GSEMatrix=FALSE)
+kable(data.frame(head(Meta(gse))), format = "html")
+
+```
+
+???
+GSEMatrix parameter will only work for microarray data
+
+---
+
+## Information about Platform - `r names(GPLList(gse))`
+
+```{r message=FALSE, warning=FALSE}
+current_gpl <- names(GPLList(gse))[1]
+current_gpl_info <- Meta(getGEO(current_gpl))
+
+```
+--
+```{r}
+current_gpl_info$title
+current_gpl_info$last_update_date
+current_gpl_info$organism
+```
+
+
+---
+## Information about Platform - `r names(GPLList(gse))`  
+
+### Represent the same as above but using markdown 
+  * with embedded r (expression) surrounded by [grave accent](https://en.wikipedia.org/wiki/Grave_accent).  Also see: [R markdown cheatsheet](https://rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf) for good tips<br><br>
+
+**Platform title** : `r current_gpl_info$title`<br>
+**Submission data** : `r current_gpl_info$submission_date`<br>
+**Last update data** : `r current_gpl_info$last_update_date`<br>
+**Organims** : `r current_gpl_info$organism` (taxid: `r current_gpl_info$taxid`)<br>
+**Number of GEO datasets that use this techology** : `r length(current_gpl_info$series_id)` <br> 
+(code: length(current_gpl_info$series_id)) <br> 
+**Number of GEO samples that use this technology** : `r length(current_gpl_info$sample_id)` <br>
+(code: length(current_gpl_info$sample_id)) <br>
+
+---
+
+### Get the expression Data
+
+```{r message=FALSE, warning=FALSE}
+sfiles = getGEOSuppFiles('GSE70072')
+
+fnames = rownames(sfiles)
+
+# there is only one supplemental file
+ca125_exp = read.delim(fnames[1],header=TRUE,
+                check.names = FALSE) #<<
+
+```
+
+--
+Difference between:
+```{r}
+read.table(fnames[1],header=TRUE,check.names=FALSE,nrows = 1)[1,1:4]
+```
+
+And
+
+```{r}
+read.table(fnames[1],header=TRUE,check.names=TRUE,nrows = 1)[1,1:4]
+```
+
+
+---
+
+```{r}
+kable(ca125_exp[1:15,1:5], format = "html")
+```
+
+---
+## Cleaning the data
+  * How many unique genes do we have?
+  * Are there any non-genes in our dataset? If so what are they?
+  * Can we exclude them?
+
+### How many genes do we have measurments for?  
+```{r}
+dim(ca125_exp)
+```
+
+--
+Define the groups
+```{r}
+#get the 2 and third token from the column names
+samples <- data.frame(lapply(colnames(ca125_exp)[3:22], 
+        FUN=function(x){unlist(strsplit(x, split = "\\."))[c(2,3)]}))
+colnames(samples) <- colnames(ca125_exp)[3:22]
+rownames(samples) <- c("patients","cell_type")
+samples <- data.frame(t(samples))
+```
+
+
+---
+
+## Are any of genes duplicated? and Why?
+
+Get the summarized counts for each gene
+```{r}
+summarized_gene_counts <- sort(table(ca125_exp$gname),decreasing = TRUE)
+```
+
+Only output those that are greater than 1
+```{r}
+kable(summarized_gene_counts[which(summarized_gene_counts>1)[1:10]], format="html")
+```
+
+---
+## What are those?
+
+* [Y_RNA](https://en.wikipedia.org/wiki/Y_RNA) - small non-coding RNAs
+* [SNOR](https://en.wikipedia.org/wiki/Small_nucleolar_RNA) - small nucleolar RNA
+* U - small nuclear RNA
+
+## Do I need to filter them out?
+
+--
+
+* At this point - **No**
+* Difference of opinion.
+* If we base our analysis on ensembl gene ids then they are unique elements and we don't have to worry about them.
+* Collapsing them might increase their overall counts
+
+* **But we do need to filter out genes that have low counts!**
+
+---
+
+* According to the edgeR protocol - Filter weakly expressed and noninformative (e.g., non-aligned) features.
+* **In edgeR, it is recommended to remove features without at least 1 read per million in n of the samples, where n is the size of the smallest group of replicates.**
+* For our example dataset - there are 10 samples of each group so n=10
+```{r}
+#translate out counts into counts per million using the edgeR package function cpm
+cpms = cpm(ca125_exp[,3:22])
+rownames(cpms) <- ca125_exp[,1]
+
+# get rid of low counts
+keep = rowSums(cpms >1) >=3  #<<
+ca125_exp_filtered = ca125_exp[keep,]
+```
+
+What does that do to the dataset?
+--
+```{r}
+dim(ca125_exp_filtered)
+```
+
+
+???
+It is not important that the 10 samples that have at least 1 count per million are from the same condition, just that there are 10 of them. 
+
+---
+### Does that solve some of duplicate issues?
+
+Get the summarized counts for each gene
+```{r}
+summarized_gene_counts_filtered <- sort(table(ca125_exp_filtered$gname),decreasing = TRUE)
+```
+
+Only output those that are greater than 1
+```{r}
+kable(summarized_gene_counts_filtered[which(summarized_gene_counts_filtered>1)[1:10]], format="html")
+```
+
+
+
+---
+
+## Normalization
+
+* First steps in any analysis.
+* Why is it important?  Why do we need to normalize our data?
+
+--
+
+<br>How we think our experimental data should look -  Bull's eye every time!
+<img src="images/img_lecture4/bullseye_1.png">
+
+
+---
+
+
+
+## Normalization
+
+* First steps in any analysis.
+* Why is it important?  Why do we need to normalize our data?
+
+<br>How the data actually looks:
+
+<img src="images/img_lecture4/bullseye_2.png">
+
+
+---
+
+## Variation
+
+--
+
+.pull-left[
+**Technical Variation**
+]
+
+.pull-right[
+**Biological Variation**
+]
+
+---
+
+## Variation
+
+.pull-left[
+**Technical Variation**
+- caused by instrumental, experimental variation
+- samples run on different days by different people with slightly different reagents
+- Want to control for these factors as best we can but with larger experiments there will always be some level of variation
+- read depth, gene length, ...
+- This is what we want to correct for.
+]
+
+.pull-right[
+**Biological Variation**
+- came from a different sample or a different condition
+- These are the things we are **interested in**
+]
+
+
+---
+## Data distributions
+
+* a sampling of data will form some sort of distribution, a mathematical means of representing it.
+* in our experimental methods, we are sampling a set of genes/proteins and associating some metric with that sampling.  
+* There are many different types of well charecterized distributions, including:
+  1. Normal distribution
+  1. Bimodal distribution
+  1. Poisson distribution
+  1. Power log distribution
+
+---
+
+### Normal distribution
+
+Generate a set of 1000 randomly selected numbers from the normal distribution.
+```{r}
+r <- rnorm(1000, mean=0, sd=1)
+```
+
+If we graph this random distribution it will look like:
+
+--
+
+```{r eval=FALSE}
+hist(r,freq = FALSE,breaks = 30,
+     xlim = c(-4, 4),ylim = c(0, 1),
+     main = "Normal Distribution",
+     xlab = "x",ylab = "f(x)", col = "yellow")
+
+```
+---
+--
+```{r echo=FALSE}
+hist(r,freq = FALSE,breaks = 30,
+     xlim = c(-4, 4),ylim = c(0, 1),
+     main = "Normal Distribution",
+     xlab = "x",ylab = "f(x)", col = "yellow")
+
+```
+
+---
+
+If we then grab 100 values equally spaced between -4 and 4
+```{r eval=FALSE}
+
+hist(r,freq = FALSE,breaks = 30,
+     xlim = c(-4, 4),ylim = c(0, 1),
+     main = "Normal Distribution",
+     xlab = "x",ylab = "f(x)", col = "yellow")
+
+x <- seq(-4, 4, length.out = 100)
+
+#add the density distribution
+points(x, dnorm(x), type = "l", lwd = 2, col="firebrick")
+
+```
+---
+
+If we then grab 100 values equally spaced between -4 and 4
+```{r echo=FALSE}
+
+hist(r,freq = FALSE,breaks = 30,
+     xlim = c(-4, 4),ylim = c(0, 1),
+     main = "Normal Distribution",
+     xlab = "x",ylab = "f(x)", col = "yellow")
+
+x <- seq(-4, 4, length.out = 100)
+
+#add the density distribution
+points(x, dnorm(x), type = "l", lwd = 2, col="firebrick")
+
+```
+
+---
+### Distribution of our data - Boxplot
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+
+data2plot <- log2(cpm(ca125_exp_filtered[,3:22]))
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "CA125 RNASeq Samples")
+
+#draw the median on each box plot
+abline(h = median(apply(data2plot, 2, median)), col = "green", lwd = 0.6, lty = "dashed")
+
+```
+
+---
+
+### Distribution of our data - Boxplot
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+
+data2plot <- log2(cpm(ca125_exp_filtered[,3:22]))
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "CA125 RNASeq Samples")
+
+#draw the median on each box plot
+abline(h = median(apply(data2plot, 2, median)), col = "green", lwd = 0.6, lty = "dashed")
+
+```
+---
+
+### Distribution of our data - Density plot
+
+```{r eval=FALSE}
+counts_density <- apply(log2(cpm(ca125_exp_filtered[,3:22])), 2, density)
+
+  #calculate the limits across all the samples
+	xlim <- 0; ylim <- 0
+	for (i in 1:length(counts_density)) {
+	  xlim <- range(c(xlim, counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, counts_density[[i]]$y))
+	}
+	
+	cols <- rainbow(length(counts_density))
+	ltys <- rep(1, length(counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(counts_density)) lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+	
+	#create legend
+	legend("topright", colnames(data2plot),  
+	       col=cols, lty=ltys, cex=0.75, 
+	       border ="blue",  text.col = "green4", 
+	       merge = TRUE, bg = "gray90")
+```
+
+---
+
+### Distribution of our data - Density plot
+
+```{r echo=FALSE}
+counts_density <- apply(log2(cpm(ca125_exp_filtered[,3:22])), 2, density)
+
+  #calculate the limits across all the samples
+	xlim <- 0; ylim <- 0
+	for (i in 1:length(counts_density)) {
+	  xlim <- range(c(xlim, counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, counts_density[[i]]$y))
+	}
+	
+	cols <- rainbow(length(counts_density))
+	ltys <- rep(1, length(counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(counts_density)) lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+	
+	#create legend
+	legend("topright", colnames(data2plot),  
+	       col=cols, lty=ltys, cex=0.75, 
+	       border ="blue",  text.col = "green4", 
+	       merge = TRUE, bg = "gray90")
+```
+
+--- 
+## Common Normalization methods
+
+### Z-scored normalization
+  * centres the data to zero and the standard deviation to 1.
+  * assumes that the data is normally distributed
+
+### Quantile normalization
+  * sort each column by values
+  * compute the average for each row
+  * replace all values along the row with the computed average
+  * put values back in original rows. 
+  * forces the distribution of each sample to be the same, the sum of each column is the same
+  * **Most commonly used normalization method for microarray based technologies**
+  
+<font size=6> What do these normalization methods lack with regards to RNASeq?</font>
+
+---
+## Specialized Normalization Techniques for RNASeq
+
+* both methods are very similar and give comparable results (according to in depth comparison that can be found [here](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0206312))
+
+### Trimmed Mean of M-values (TMM)
+  * implemented in the edgeR package
+  * based on the hypothesis that most genes are not differentially expressed
+  * Sample based
+  
+### Relative Log Expression (RLE)
+  * implemented in the DESeq package
+  * based on the hypothesis that most genes are not differentially expressed
+  * gene based
+
+---
+## M vs A plot
+
+* As it is the premise of the TMM method, just briefly go over it.
+* Originally used in microarray experiments with two dye (Red vs green) to assay the technical variability between the intensities of the two dyes.
+* M - ratio, ratio Cy5(red) to Cy3(green), A - average of Cy5 and Cy3
+* For RNASeq experiments it can be used to compare two samples or two groups of samples.
+```{r}
+plotMA(log2(ca125_exp[,c(3,4)]), ylab="M - ratio log expression", main="CA125 + vs - - example")
+```
+
+  
+---
+## Trimmed Mean of M-values
+
+* Trimmed mean - is the average after removing the upper and lower percentage of the data points. (By default, 30% of the M values and 5% of the A values)
+
+<img src=./images/img_lecture4/TMM_def.png>
+
+* N is the total reads for sample K, Y is the observed counts
+* TMM compares each sample to a reference.
+* Major difference to previous methods - the data does not need to be modified prior to normalization.
+
+---
+## Applying TMM to our dataset
+
+### Create an edgeR container for RNASeq count data
+  * use the filtered counts and make sure it is not a data.frame but is a matrix
+  * give the defined groups that we are going to be comparing - cell type (CA125+ vs CA125-)
+```{r}
+filtered_data_matrix <- as.matrix(ca125_exp_filtered[,3:22])
+rownames(filtered_data_matrix) <- ca125_exp_filtered$ensembl75_id
+
+d = DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+```
+
+## Calculate the normalization factors
+
+```{r}
+d = calcNormFactors(d)
+```
+
+---
+* How did normalization change our data
+```{r}
+#get the normalized data
+normalized_counts <- cpm(d)
+
+```
+
+```{r echo=FALSE}
+par(mfrow=c(1,2))
+
+# add the original distribution
+
+counts_density <- apply(log2(filtered_data_matrix), 2, density)
+
+  #calculate the limits across all the samples
+	xlim <- 0; ylim <- 0
+	for (i in 1:length(counts_density)) {
+	  xlim <- range(c(xlim, counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, counts_density[[i]]$y))
+	}
+	
+	cols <- rainbow(length(counts_density))
+	ltys <- rep(1, length(counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(counts_density)) lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+	
+
+normalized_counts_density <- apply(log2(normalized_counts), 2, density)
+
+  #calculate the limits across all the samples
+	xlim <- 0; ylim <- 0
+	for (i in 1:length(normalized_counts_density)) {
+	  xlim <- range(c(xlim, normalized_counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, normalized_counts_density[[i]]$y))
+	}
+	
+	cols <- rainbow(length(normalized_counts_density))
+	ltys <- rep(1, length(normalized_counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(normalized_counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(normalized_counts_density)) lines(normalized_counts_density[[i]], col=cols[i], lty=ltys[i])
+
+
+	
+		
+```
+---
+* What happens when we use the same scale
+
+```{r echo=FALSE}
+par(mfrow=c(1,2))
+
+counts_density <- apply(log2(filtered_data_matrix), 2, density)
+normalized_counts_density <- apply(log2(normalized_counts), 2, density)
+
+  #calculate the limits across all the samples
+	xlim <- 0; ylim <- 0
+	for (i in 1:length(counts_density)) {
+	  xlim <- range(c(xlim, counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, counts_density[[i]]$y))
+	}
+ #add limits from the second plot
+	for (i in 1:length(normalized_counts_density)) {
+	  xlim <- range(c(xlim, normalized_counts_density[[i]]$x)); 
+	  ylim <- range(c(ylim, normalized_counts_density[[i]]$y))
+	}	
+	cols <- rainbow(length(counts_density))
+	ltys <- rep(1, length(counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(counts_density)) lines(counts_density[[i]], col=cols[i], lty=ltys[i])
+	
+	cols <- rainbow(length(normalized_counts_density))
+	ltys <- rep(1, length(normalized_counts_density))
+	
+	#plot the first density plot to initialize the plot
+	plot(normalized_counts_density[[1]], xlim=xlim, ylim=ylim, type="n", 
+	     ylab="Smoothing density of log2-CPM", main="", cex.lab = 0.85)
+	#plot each line
+	for (i in 1:length(normalized_counts_density)) lines(normalized_counts_density[[i]], col=cols[i], lty=ltys[i])
+
+```
+---
+
+### Distribution of our data - Boxplot
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+
+par(mfrow=c(1,2))
+data2plot_prior <- log2(cpm(ca125_exp_filtered[,3:22]))
+boxplot(data2plot_prior, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "Original Counts")
+
+#draw the median on each box plot
+abline(h = median(apply(data2plot_prior, 2, median)), col = "orange", lwd = 0.6, lty = "dashed")
+
+
+data2plot <- log2(normalized_counts)
+boxplot(data2plot, xlab = "Samples", ylab = "log2 CPM", 
+        las = 2, cex = 0.5, cex.lab = 0.5,
+        cex.axis = 0.5, main = "Normalized")
+
+#draw the median on each box plot
+abline(h = median(apply(data2plot, 2, median)), col = "green", lwd = 0.6, lty = "dashed")
+```
+
+---
+
+Inspect the sample separation using a multidimenstional scaling plot or MDS plot post normalization.
+* A MDS plot represents the distances between samples
+
+```{r}
+plotMDS(d, labels=rownames(samples),
+  col = c("darkgreen","blue")[factor(samples$cell_type)])
+```
+
+---
+
+Next, estimate common and tagwise dispersion 
+  * dispersion is a parameter that describes how much your variance deviates from the mean.
+  * this is specific to the edgeR pacakge and is used downstream when calculating differential expression.
+  * we can estimate both the common and tagwise dispersion. Common dispersion calculates a common dispersion value for all genes, while the tagwise method calculates gene-specific dispersions.
+  * Genes with more counts will have smaller variations between samples than genes with few counts. 
+  * dispersion squared is biological coeffient of variation (BCV) so dispersion is a measure of how much variation there is in your samples.
+
+using:
+```{r}
+model_design <- model.matrix(~samples$patients + samples$cell_type+0)
+d <- estimateDisp(d, model_design)
+```
+
+---
+Graphing the BCV
+  * tagwise = genewise, each dot represents the BCV for a gene
+```{r}
+plotBCV(d,col.tagwise = "black",col.common = "red")
+```
+---
+Create a visual representation of the mean-variance relationship 
+```{r message=FALSE, warning=FALSE}
+plotMeanVar(d, show.raw.vars = TRUE, #<<
+            show.tagwise.vars=FALSE, NBline=FALSE, 
+            show.ave.raw.vars = FALSE,show.binned.common.disp.vars = FALSE)
+```
+---
+```{r message=FALSE, warning=FALSE}
+plotMeanVar(d, show.raw.vars = TRUE,
+            show.tagwise.vars=TRUE, #<< 
+            NBline=FALSE, show.ave.raw.vars = FALSE,
+            show.binned.common.disp.vars = FALSE)
+```
+
+---
+```{r message=FALSE, warning=FALSE}
+plotMeanVar(d, show.raw.vars = TRUE, show.tagwise.vars=TRUE, 
+            show.ave.raw.vars = TRUE,  #<<
+            NBline=FALSE, show.binned.common.disp.vars = FALSE)
+```
+
+---
+```{r message=FALSE, warning=FALSE}
+plotMeanVar(d, show.raw.vars = TRUE, show.tagwise.vars=TRUE, 
+            show.ave.raw.vars = TRUE,  NBline=FALSE, 
+            show.binned.common.disp.vars = TRUE) #<<
+```
+
+---
+```{r message=FALSE, warning=FALSE}
+plotMeanVar(d, show.raw.vars = TRUE, show.tagwise.vars=TRUE, 
+            show.ave.raw.vars = TRUE,  
+            NBline=TRUE, #<< 
+            show.binned.common.disp.vars = TRUE)
+```
+---
+
+<img src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1038%2Fnmeth.3963/MediaObjects/41592_2016_Article_BFnmeth3963_Fig1_HTML.jpg">
+
+<font size=2>Wadi, L., Meyer, M., Weiser, J. et al. [Impact of outdated gene annotations on pathway enrichment analysis](https://www.nature.com/articles/nmeth.3963). Nat Methods 13, 705–706 (2016).</font>
+
+---
+## Identifier mapping
+
+**Why can't the data just contain the identifiers that are interested in, i.e genes?**
+#### Techonology
+* Often data generation works with different identifiers than what we need for the analysis.
+* Technology itself works on a different level and tracks different information so often aren't working gene level data.  For example - 
+  * RNASeq deals with read counts of short fragments of RNA that don't necessarily map to an individual gene
+  * Microarray deals with probes which are the base unit of analysis.  At design phase probes are associated with different region of the genome but are not necessarily mapped to a gene.
+  * Proteomics deals with peptides similar to the above examples. 
+  
+#### Changing annotations
+* Thankfully our knowledge of genes, gene regulation are constantly expanding.  
+* New genes, regulatory mechnisms are being discovered
+* RNASeq data can be re analyzed given new information to uncover new things.  (microarray not to same degree)
+
+
+---
+## Tools for Identifier Mapping
+* Depends on the data you are trying to map.
+* Often going to the source will result in the best mappping, for example, for best mapping of ensembl ids go to [Ensembl](https://useast.ensembl.org/index.html).  Or if you want mapping for mouse genes go to Mouse Genome Informatics [MGI](http://www.informatics.jax.org/)
+* Popular Tools:
+  * [Ensembl Biomart](https://www.ensembl.org/biomart/martview/5d0da2ec3ccb52f6596c568a5b574402) - has web interface as well as multiple packages - the bioc package [biomaRt](https://bioconductor.org/packages/release/bioc/html/biomaRt.html) and the R package [biomartr](https://academic.oup.com/bioinformatics/article/33/8/1216/2931816) which actually depends on the biomaRt bioc package
+    * biomartr is an extension on the biomaRt package and is optimized for those trying to get annotation information out of biomart.
+  * [BridgeDB](https://openrisknet.org/e-infrastructure/services/119/) - restful service with a bioc interface [tutorial](https://bioconductor.org/packages/devel/bioc/vignettes/BridgeDbR/inst/doc/tutorial.html) - flaky though
+
+* Wherever you get your mappings from it is important that you are working with up to date annotations and the right versions.
+ 
+
+---
+## Biomart
+* Let's check how many of my ensembl gene ids map to the same gene names associated with them. 
+
+## Get all the available marts
+```{r}
+library(biomaRt)
+
+listMarts()
+```
+
+---
+## What if you need a different or older verion.
+
+```{r}
+listEnsemblArchives()[1:10,]
+```
+---
+
+Connect to the desired mart
+```{r}
+ensembl <- useMart("ensembl")
+```
+
+Get the set of datasets available
+```{r}
+datasets <- listDatasets(ensembl)
+kable(head(datasets),format = "html")
+```
+---
+Limit to the human datasets available
+
+```{r}
+kable(head(datasets[grep(datasets$dataset,pattern = "sapiens"),]),format = "html")
+```
+```{r}
+ensembl = useDataset("hsapiens_gene_ensembl",mart=ensembl)
+```
+
+---
+## Building a Biomart Query
+
+Function that we will be using is: **getBM()**
+
+```{r}
+help(getBM)
+```
+
+What are we trying to convert:
+  * Human Ensembl Gene Ids to HGNC symbols 
+
+  * A few things we need:
+    1. attributes - the type of identifiers that you want to retrieve.  **So in our use case this is Ensembl gene Ids and the HGNC symbols** - What would happen if we just specified the HGNC symbols here?
+    1. filters - how you are filtering your results.  Not intuitive.  **For our use case this is Ensembl gene ids** 
+    1. values - the values associated with the filters. **So in our use case this is the set of Ensembl gene ids that we have**
+
+---
+### Filters
+* unfortunately we have to figure out the correct name for all the identifiers that we are using as well as converting to.
+
+how many filters are there?
+--
+```{r}
+dim(listFilters(ensembl))
+```
+
+--
+What do those filters look like?
+```{r}
+kable(listFilters(ensembl)[1:10,1:2], type="html")
+```
+
+---
+### filters - cont'd 
+```{r}
+biomart_human_filters <- listFilters(ensembl)
+kable(biomart_human_filters[
+  grep(biomart_human_filters$name,pattern="ensembl"),],
+      format="html") %>%
+  row_spec(3, background = "yellow")
+
+```
+---
+### Attributes
+
+```{r}
+kable(listAttributes(ensembl)[1:10,1:2], type="html")
+```
+---
+### Attributes 
+
+* you can also use the function searchAttribtutes to find the attribute you are looking for.
+
+```{r}
+kable(searchAttributes(mart = ensembl, 'hgnc') , format="html") %>%
+  row_spec(2, background = "yellow")
+
+```
+---
+
+* if you wanted to look for all of them at once
+
+```{r}
+kable(searchAttributes(mart = ensembl, 'ensembl|hgnc')[1:12,] , 
+      format="html") %>%
+  row_spec(c(1,11), background = "yellow")
+
+```
+
+
+---
+What are we trying to convert:
+  * Human Ensembl Gene Ids to HGNC symbols 
+
+  * A few things we need:
+    1. attributes - the type of identifiers that you want to retrieve.  
+      * ensembl_gene_id and hgnc_symbol
+    1. filters - how you are filtering your results.  Not intuitive.  
+      * ensembl_gene_id
+    1. values - the values associated with the filters. 
+      * ensembl75_id - first column in our expression matrix
+
+```{r}
+
+#check to see if ca125_id_conversion file exists (computationally intensive)
+conversion_stash <- "ca125_id_conversion.rds"
+if(file.exists(conversion_stash)){
+  ca125_id_conversion <- readRDS(conversion_stash)
+} else {
+  ca125_id_conversion <- getBM(attributes = c("ensembl_gene_id","hgnc_symbol"),
+                            filters = c("ensembl_gene_id"),
+                            values = ca125_exp_filtered$ensembl75_id,
+                            mart = ensembl)
+  saveRDS(ca125_id_conversion, conversion_stash)
+}
+
+
+```
+
+---
+How did we do?
+```{r}
+nrow(normalized_counts) - nrow(ca125_id_conversion)
+```
+--
+That is the difference between the number of mappings we have and the number of rows in our normalized set but that doesn't necessarily mean that we are missing only that many. 
+
+---
+Instead, lets try and merge our new identifiers.  
+
+```{r}
+normalized_counts_annot <- merge(ca125_id_conversion,normalized_counts,by.x = 1, by.y = 0, all.y=TRUE)
+
+kable(normalized_counts_annot[1:5,1:5],type = "html")
+```
+
+---
+How many identifiers are missing?
+
+```{r}
+ensembl_id_missing_gene <- normalized_counts_annot$ensembl_gene_id[
+  which(is.na(normalized_counts_annot$hgnc_symbol))]
+
+length(ensembl_id_missing_gene)
+```
+
+
+```{r}
+kable(normalized_counts_annot[which(is.na(normalized_counts_annot$hgnc_symbol))[1:5],1:5], type="html")
+```
+
+---
+
+## What do we do with these missing identifiers? {~3% of our dataset}
+
+```{r}
+old_mapping <- merge(ca125_exp[,1:2],data.frame(ensembl_id_missing_gene),all.y = TRUE, by.x=1, by.y=1)
+```
+
+```{r}
+kable(old_mapping[1:10,], type="html")
+```
+---
+* There are `r length(grep(old_mapping$gname,pattern = "[^RP]"))` RP1 gene names
+```{r}
+kable(old_mapping[grep(old_mapping$gname,pattern = "[^RP]")[1:10],], type="html")
+```
+---
+
+## Assignment #1 
+  * <font size=5> Due February 4th, 2020 @ 20:00 </font>
+
+## What to hand in?
+  * **html rendered RNotebook** - you should be able to submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * **Do not check the data file into your repo!** - your code should download the data from GEO and generate a new, cleaned data file.
+  * Document your work and your code directly in the notebook.
+  * **Read the paper associated with your data!**
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+
