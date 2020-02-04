@@ -1080,9 +1080,9 @@ old_mapping <- merge(ca125_exp[,1:2],data.frame(ensembl_id_missing_gene),all.y =
 kable(old_mapping[1:10,], type="html")
 ```
 ---
-* There are `r length(grep(old_mapping$gname,pattern = "[^RP]"))` RP1 gene names
+* There are `r length(grep(old_mapping$gname,pattern = "^RP"))` RP1 gene names
 ```{r}
-kable(old_mapping[grep(old_mapping$gname,pattern = "[^RP]")[1:10],], type="html")
+kable(old_mapping[grep(old_mapping$gname,pattern = "^RP")[1:10],], type="html")
 ```
 ---
 
@@ -1096,4 +1096,42 @@ kable(old_mapping[grep(old_mapping$gname,pattern = "[^RP]")[1:10],], type="html"
   * Document your work and your code directly in the notebook.
   * **Read the paper associated with your data!**
   * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+
+---
+### transfer in the old ids and write out the data
+```{r}
+missing_ids_subset <- normalized_counts_annot[
+  which(is.na(normalized_counts_annot$hgnc_symbol)),]
+
+#merge the missing ids subset with old ids
+missing_ids_subset_withids <- merge(old_mapping,missing_ids_subset,by.x=1,by.y=1)
+
+missing_ids_subset_withids <- missing_ids_subset_withids[,-3]
+colnames(missing_ids_subset_withids)[1:2] <- colnames(normalized_counts_annot)[1:2]
+
+finalized_normalized_counts <- rbind(normalized_counts_annot[
+  which(!is.na(normalized_counts_annot$hgnc_symbol)),],missing_ids_subset_withids)
+```
+
+
+Look at duplicated records
+```{r}
+duplicated_ensembl <-finalized_normalized_counts$ensembl_gene_id[which(duplicated(finalized_normalized_counts$ensembl_gene_id))]
+finalized_normalized_counts[which(finalized_normalized_counts$ensembl_gene_id == duplicated_ensembl),1:5]
+
+```
+
+
+```{r}
+finalized_normalized_counts <- finalized_normalized_counts[-which(finalized_normalized_counts$hgnc_symbol == "C12orf74"),]
+finalized_normalized_counts <- cbind(finalized_normalized_counts$ensembl_gene_id,finalized_normalized_counts$hgnc_symbol,log2(finalized_normalized_counts[,3:22]+1))
+colnames(finalized_normalized_counts)[1:2] <- c("ensembl_gene_id","hgnc_symbol")
+```
+
+
+write out the data file
+```{r}
+write.table(finalized_normalized_counts,file = file.path("data", "GSE70072_finalized_normalized_counts.txt"),sep = "\t",
+            row.names = FALSE,col.names = TRUE)
+```
 

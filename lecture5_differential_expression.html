@@ -1,0 +1,3205 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>BCB420 - Computational Systems Biology</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ruth Isserlin" />
+    <meta name="date" content="2020-02-04" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <script src="libs/kePrint-0.0.1/kePrint.js"></script>
+    <link rel="stylesheet" href="libs/example.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# BCB420 - Computational Systems Biology
+## Lecture 5 - Differential Expression
+### Ruth Isserlin
+### 2020-02-04
+
+---
+
+
+
+
+
+## Before we start
+
+## Assignment #1 
+  * &lt;font size=5&gt; Due Today! @ 20:00 &lt;/font&gt;
+
+## What to hand in?
+  * **html rendered RNotebook** - you should be able to submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * **Do not check the data file into your repo!** - your code should download the data from GEO and generate a new, cleaned data file.
+  * Document your work and your code directly in the notebook.
+  * **Read the paper associated with your data!**
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+  
+---
+# Differential Gene Expression Analysis
+
+## Where we left off from last week
+  * data from "Apoptosis enhancing drugs overcome innate platinum resistance in CA125 negative tumor initiating populations of high grade serous ovarian cancer"
+  * 10 ovarian tumours sorted by CA125+ve and -ve antibody
+  * we normalized it, we cleaned it, we made sure we had up to date identifers from ensembl.
+  * What's next?
+  
+---
+
+First things first, 
+  * Load the data
+
+```r
+normalized_count_data &lt;- read.table(file=file.path("data", "GSE70072_finalized_normalized_counts.txt"),
+                                    header = TRUE,sep = "\t",
+                                    stringsAsFactors = FALSE,
+                                    check.names=FALSE)
+```
+
+
+---
+
+  * Take a look at the data we just loaded.
+
+```r
+kable(normalized_count_data[1:5,1:5], type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ensembl_gene_id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; hgnc_symbol &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Pt.A.CA125- &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Pt.A.CA125+ &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pt.B.CA125- &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000000003 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; TSPAN6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.945591 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.6488678 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.1585772 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000000419 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; DPM1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.912242 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.0789211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.3233556 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000000457 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SCYL3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.046979 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.2375251 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.2441139 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000000460 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; C1orf112 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.927282 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.6138063 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.1747420 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000000938 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; FGR &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.000000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.8434171 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4502989 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+Create a numerical matrix that we can create a heatmap from
+
+```r
+heatmap_matrix &lt;- normalized_count_data[,3:ncol(normalized_count_data)]
+rownames(heatmap_matrix) &lt;- normalized_count_data$ensembl_gene_id
+colnames(heatmap_matrix) &lt;- colnames(normalized_count_data[,3:ncol(normalized_count_data)])
+```
+
+---
+
+### Create a Heatmap
+
+What is a heatmap?
+  * data graph that translates numbers into a colour scale over many samples and measurements.
+  * Has multiple additional methods that we can use to restructure the format to highlight themes in the data.
+
+```r
+library(ComplexHeatmap)
+library(circlize)
+
+if(min(heatmap_matrix) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix)), c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix), 0, max(heatmap_matrix)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix),
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE
+                               )
+```
+
+
+---
+
+```r
+current_heatmap
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+---
+Let's try that again using Row - normalization
+  * scale each row and centre them around the mean.
+  * From each value we subtract the mean and divide by the standard deviation of the row to row normalize it.
+  * some other heatmap packages might have row normalization built in.
+
+
+```r
+*heatmap_matrix &lt;- t(scale(t(heatmap_matrix)))
+
+if(min(heatmap_matrix) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix)), c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix), 0, max(heatmap_matrix)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix),
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE
+                               )
+```
+
+---
+
+
+```r
+current_heatmap
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-8-1.png)&lt;!-- --&gt;
+
+---
+Traditionally, low scale experiments are designed to compare the expression of a single gene or maybe an handful of genes.
+
+
+```r
+ca125_pos_samples &lt;- grep(colnames(normalized_count_data),
+                          pattern="\\+")
+ca125_neg_samples &lt;- grep(colnames(normalized_count_data),
+                          pattern="\\-")
+
+gene_of_interest &lt;- which(normalized_count_data$hgnc_symbol == "MUC16")
+```
+
+---
+
+.pull-left[
+
+```r
+muc16_neg_samples &lt;- t(normalized_count_data
+                       [gene_of_interest,
+                         ca125_neg_samples])
+colnames(muc16_neg_samples) &lt;- c("neg_samples")
+muc16_neg_samples 
+```
+
+```
+##             neg_samples
+## Pt.A.CA125-   10.723796
+## pt.B.CA125-    8.850579
+## Pt.C.CA125-    9.153117
+## pt.D.CA125-    9.013810
+## pt.E.CA125-    7.072799
+## pt.F.CA125-    7.666300
+## pt.G.CA125-    8.847846
+## pt.H.CA125-    9.392200
+## pt.I.CA125-    7.536275
+## pt.J.CA125-    6.190249
+```
+]
+
+.pull-right[
+
+```r
+muc16_pos_samples &lt;- t(normalized_count_data
+                       [gene_of_interest,
+                         ca125_pos_samples])
+colnames(muc16_pos_samples) &lt;- c("pos_samples")
+muc16_pos_samples
+```
+
+```
+##             pos_samples
+## Pt.A.CA125+    9.909214
+## pt.B.CA125+    8.587325
+## pt.C.CA125+    8.340244
+## pt.D.CA125+    8.710818
+## pt.E.CA125+    7.085022
+## pt.F.CA125+    7.861518
+## pt.G.CA125+    8.140352
+## pt.H.CA125+    8.884911
+## pt.I.CA125+    7.785848
+## pt.J.CA125+    5.596313
+```
+]
+
+---
+
+### Is MUC16 differentially expressed in our samples?
+
+* Using a simple t.test compare this individual gene. 
+* The null hypothesis of the two sample t-test is that there is **no** difference in means of each sample
+* It assumes that both sample A and sample B are normally distributed.  
+
+
+```r
+t.test(x=t(muc16_pos_samples),y=t(muc16_neg_samples))
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  t(muc16_pos_samples) and t(muc16_neg_samples)
+## t = -0.63961, df = 17.695, p-value = 0.5306
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -1.5205410  0.8114598
+## sample estimates:
+## mean of x mean of y 
+##  8.090156  8.444697
+```
+
+---
+
+.pull-left[
+
+```r
+muc16_neg_samples &lt;- t(normalized_count_data[gene_of_interest,ca125_neg_samples])
+colnames(muc16_neg_samples) &lt;- c("neg_samples")
+muc16_neg_samples 
+```
+
+```
+##             neg_samples
+## Pt.A.CA125-   10.723796
+## pt.B.CA125-    8.850579
+## Pt.C.CA125-    9.153117
+## pt.D.CA125-    9.013810
+## pt.E.CA125-    7.072799
+## pt.F.CA125-    7.666300
+## pt.G.CA125-    8.847846
+## pt.H.CA125-    9.392200
+## pt.I.CA125-    7.536275
+## pt.J.CA125-    6.190249
+```
+]
+
+.pull-right[
+
+```r
+muc16_pos_samples &lt;- t(normalized_count_data[gene_of_interest,ca125_pos_samples])
+colnames(muc16_pos_samples) &lt;- c("pos_samples")
+muc16_pos_samples
+```
+
+```
+##             pos_samples
+## Pt.A.CA125+    9.909214
+## pt.B.CA125+    8.587325
+## pt.C.CA125+    8.340244
+## pt.D.CA125+    8.710818
+## pt.E.CA125+    7.085022
+## pt.F.CA125+    7.861518
+## pt.G.CA125+    8.140352
+## pt.H.CA125+    8.884911
+## pt.I.CA125+    7.785848
+## pt.J.CA125+    5.596313
+```
+]
+
+???
+Obviously it is hard to tell just by looking at the data if the gene is differentially expreseed but there are a lot variables that could explain some of the differences between the samples that are not accounted for in this traditional naive approach.
+
+---
+
+###How can we account for these variables?
+* There are many different packages that try and control for these variables.  We are going to go through two of them:
+  * [Limma](https://bioconductor.org/packages/release/bioc/html/limma.html) - LInear Models of MircroArray
+    * orginallay published in [2004](https://www.ncbi.nlm.nih.gov/pubmed/16646809) for use with microarrays
+    * updated and improved over the years to also include rnaseq data.
+  * [edgeR](https://bioconductor.org/packages/release/bioc/html/edgeR.html) 
+    * Suite of methods specialized for Bulk RNAseq analysis
+    * contains multiple methods to compute differential expression including a similar general linear method to the limma package.
+  
+---
+
+## Limma
+  * LInear Models of MircroArray
+  * The premise of the limma approach is the use of linear models to define differential expression.
+  * **Linear Models** - "describe a continuous response variable as a function of one or more predictor variables."^1
+  * Linear regression involves finding an linear model to explain the data.  Often described as fitting a line to a set of data points.
+  * for our example, we have a set of measurements and we want to figure out the function that best describes it.
+  * Using empirical bayes to compute the odds of any gene being differentially expressed given its contrasts.
+  
+&lt;font size=2&gt;[1]https://www.mathworks.com/discovery/linear-model.html&lt;/font&gt;
+
+---
+
+
+If you remember from last week we used an MDSPlot to look at how our samples are clustering.  We used the plotMDS from the edgeR package but we can just as easily use the plotMDS function from the the limma package.
+
+```r
+limma::plotMDS(heatmap_matrix,
+*              col = rep(c("darkgreen","blue"),10))
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-15-1.png)&lt;!-- --&gt;
+
+---
+Another way to look at the exact same plot is to color by patient
+
+```r
+pat_colors &lt;- rainbow(10)
+pat_colors &lt;- unlist(lapply(pat_colors,FUN=function(x){rep(x,2)}))
+
+limma::plotMDS(heatmap_matrix,
+*              col = pat_colors )
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-16-1.png)&lt;!-- --&gt;
+
+---
+
+## Model
+Define the groups
+  * From the above plot we know that which samples/patient the data comes from is important to determining its value.
+  * We also have hypothesized that CA125 status will also contribute to the differential. 
+
+```r
+#get the 2 and third token from the column names
+samples &lt;- data.frame(
+        lapply(colnames(normalized_count_data)[3:22], 
+        FUN=function(x){
+          unlist(strsplit(x, split = "\\."))[c(2,3)]}))
+colnames(samples) &lt;- colnames(normalized_count_data)[3:22]
+rownames(samples) &lt;- c("patients","cell_type")
+samples &lt;- data.frame(t(samples))
+```
+
+```r
+samples[1:5,]
+```
+
+```
+##             patients cell_type
+## Pt.A.CA125-        A    CA125-
+## Pt.A.CA125+        A    CA125+
+## pt.B.CA125-        B    CA125-
+## pt.B.CA125+        B    CA125+
+## Pt.C.CA125-        C    CA125-
+```
+
+---
+### Model - cont'd
+
+* function to create a linear model in R - model.matrix
+* creates a design matrix
+
+
+```r
+model_design &lt;- model.matrix(~ samples$cell_type)
+kable(model_design, type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; (Intercept) &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$cell_typeCA125+ &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+Create our data matrix 
+  * similar to what we used last week when we were using the edgeR package but slightly different
+
+
+```r
+expressionMatrix &lt;- as.matrix(normalized_count_data[,3:22])
+rownames(expressionMatrix) &lt;- normalized_count_data$ensembl_gene_id
+colnames(expressionMatrix) &lt;- colnames(normalized_count_data)[3:22]
+minimalSet &lt;- ExpressionSet(assayData=expressionMatrix)
+```
+
+Fit our data to the above model
+
+
+```r
+fit &lt;- lmFit(minimalSet, model_design)
+```
+
+---
+
+Apply empircal Bayes to compute differential expression for the above described model.
+  * The parameter trend=TRUE is specific to RNA-seq data.  (exclude for microarray data)
+
+
+```r
+fit2 &lt;- eBayes(fit,trend=TRUE)
+```
+
+
+```r
+topfit &lt;- topTable(fit2, 
+                   coef=ncol(model_design),
+                   adjust.method = "BH",
+                   number = nrow(expressionMatrix))
+
+#merge hgnc names to topfit table
+output_hits &lt;- merge(normalized_count_data[,1:2],
+                     topfit,
+                     by.y=0,by.x=1,
+                     all.y=TRUE)
+
+#sort by pvalue
+output_hits &lt;- output_hits[order(output_hits$P.Value),]
+```
+
+---
+
+
+```r
+kable(output_hits[1:10,],type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; ensembl_gene_id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; hgnc_symbol &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logFC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AveExpr &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; t &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; P.Value &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; adj.P.Val &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; B &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 7460 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000144824 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; PHLDB2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.2098391 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.5114343 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.860563 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0089748 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.319488 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 5910 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000134013 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; LOXL2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.2123611 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.7201330 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.703285 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0128421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.346509 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 7076 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000141753 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; IGFBP4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.3157584 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.7001042 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.650939 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0144467 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.355489 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 2481 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000103241 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; FOXF1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.8909267 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5938013 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.624033 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0153431 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.360099 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 5248 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000128578 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; STRIP2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5782501 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.6851401 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.623044 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0153770 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.360268 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 5657 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000132031 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MATN3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7304186 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5863327 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.620737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0154564 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.360663 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 13151 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000187479 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; C11orf96 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5050456 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.6884847 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.592236 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0164698 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.365541 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 7458 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000144810 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; COL8A1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5478954 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5217668 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.591839 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0164843 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.365608 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 4132 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000117152 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; RGS4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.6802024 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.8692665 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.585316 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0167250 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.366724 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 18391 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000261335 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.4209006 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4253192 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.556786 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0178171 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9999766 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.371599 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+How many gene pass the threshold p-value &lt; 0.05?
+
+
+```r
+length(which(output_hits$P.Value &lt; 0.05))
+```
+
+```
+## [1] 87
+```
+
+How many genes pass correction?
+--
+
+```r
+length(which(output_hits$adj.P.Val &lt; 0.05))
+```
+
+```
+## [1] 0
+```
+---
+## Correction?
+  * Referring to multipole hypothesis testing.  As the number of tests performed increases the liklihood that a positive results will occur simply by chance increases.  We need to control for this
+  * Multiple hypothesis testing will come up for differential expression, pathways analysis and for any analysis where there are multiple tests being performed
+  * Control for family-wise error rate or for false discovery rate
+  * There are a range of different methods to correct for this:
+    1. Bonferonni - considered to be overly stringent by many.  p-values are multiplied by the number of comparisons
+    1. Benjamni - hochberg
+    1. Benjamini - Yekutieli
+    
+
+```r
+p.adjust.methods
+```
+
+```
+## [1] "holm"       "hochberg"   "hommel"     "bonferroni" "BH"        
+## [6] "BY"         "fdr"        "none"
+```
+
+
+---
+Can we improve our results if we account for the patient variability?
+
+### Model - cont'd
+
+* function to create a linear model in R - model.matrix
+* creates a design matrix
+
+
+```r
+model_design_pat &lt;- model.matrix(
+  ~ samples$patients + samples$cell_type)
+kable(model_design_pat,type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; (Intercept) &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsB &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsD &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsF &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsG &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsH &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsI &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$patientsJ &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; samples$cell_typeCA125+ &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+Fit our data to the above model
+
+
+```r
+fit_pat &lt;- lmFit(minimalSet, model_design_pat)
+```
+
+---
+
+Apply empircal Bayes to compute differential expression for the above described model.
+  * The parameter trend=TRUE is specific to RNA-seq data.  (exclude for microarray data)
+
+
+```r
+fit2_pat &lt;- eBayes(fit_pat,trend=TRUE)
+```
+
+
+```r
+topfit_pat &lt;- topTable(fit2_pat, 
+                   coef=ncol(model_design_pat),
+                   adjust.method = "BH",
+                   number = nrow(expressionMatrix))
+
+#merge hgnc names to topfit table
+output_hits_pat &lt;- merge(normalized_count_data[,1:2],
+                         topfit_pat,by.y=0,by.x=1,all.y=TRUE)
+
+#sort by pvalue
+output_hits_pat &lt;- output_hits_pat[order(output_hits_pat$P.Value),]
+```
+
+---
+
+
+```r
+kable(output_hits_pat[1:10,],type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; ensembl_gene_id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; hgnc_symbol &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logFC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AveExpr &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; t &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; P.Value &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; adj.P.Val &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; B &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 12450 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000182752 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; PAPPA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.2179144 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.681068 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.419384 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000782 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7555086 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 415 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000026508 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; CD44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.1072045 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.848369 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.198156 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0001182 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4934018 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 2402 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000102755 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; FLT1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7659613 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.645930 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.849620 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002293 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0622643 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 5117 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000126878 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AIF1L &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.6347014 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.355584 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.795010 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002547 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.0072677 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 1506 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000085552 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; IGSF9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.7312699 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.432940 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.786149 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002591 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.0186000 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 12397 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000182326 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; C1S &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.9220917 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.579617 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.745380 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002803 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.0709155 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 8036 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000150938 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; CRIM1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.6230945 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.673619 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.741666 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002823 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.0756950 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 13268 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000188295 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ZNF669 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.7028924 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.272620 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.724103 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002921 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.0983332 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 13314 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000188641 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; DPYD &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.8558769 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.122403 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.549019 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0004107 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3269100 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; 19113 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000272796 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; RP1-74M1.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.6786633 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.269677 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -4.539777 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0004182 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.4420918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3391209 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+How many gene pass the threshold p-value &lt; 0.05?
+
+
+```r
+length(which(output_hits_pat$P.Value &lt; 0.05))
+```
+
+```
+## [1] 1713
+```
+
+How many genes pass correction?
+--
+
+```r
+length(which(output_hits_pat$adj.P.Val &lt; 0.05))
+```
+
+```
+## [1] 0
+```
+
+---
+
+Compare the results from the two different models
+
+
+```r
+simple_model_pvalues &lt;- data.frame(ensembl_id = output_hits$ensembl_gene_id,
+                                   simple_pvalue=output_hits$P.Value)
+pat_model_pvalues &lt;-  data.frame(ensembl_id = output_hits_pat$ensembl_gene_id,
+                                 patient_pvalue = output_hits_pat$P.Value)
+two_models_pvalues &lt;- merge(simple_model_pvalues,
+                            pat_model_pvalues,by.x=1,by.y=1)
+
+two_models_pvalues$colour &lt;- "black"
+two_models_pvalues$colour[two_models_pvalues$simple_pvalue&lt;0.05] &lt;- "orange"
+two_models_pvalues$colour[two_models_pvalues$patient_pvalue&lt;0.05] &lt;- "blue"
+two_models_pvalues$colour[two_models_pvalues$simple_pvalue&lt;0.05 &amp; two_models_pvalues$patient_pvalue&lt;0.05] &lt;- "red"
+```
+
+
+```r
+plot(two_models_pvalues$simple_pvalue,two_models_pvalues$patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "simple model p-values",
+     ylab ="Patient model p-values", 
+     main="Simple vs Patient Limma")
+```
+
+
+---
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-37-1.png)&lt;!-- --&gt;
+
+---
+
+```r
+ensembl_of_interest &lt;- normalized_count_data$ensembl_gene_id[
+  which(normalized_count_data$hgnc_symbol == "MUC16")]
+
+two_models_pvalues$colour &lt;- "grey"
+two_models_pvalues$colour[two_models_pvalues$ensembl_id==ensembl_of_interest] &lt;- "red"
+
+plot(two_models_pvalues$simple_pvalue,two_models_pvalues$patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "simple model p-values",
+     ylab ="Patient model p-values",
+      main="Simple vs Patient Limma")
+```
+
+---
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-39-1.png)&lt;!-- --&gt;
+
+
+---
+let's come back to the initial heatmap representation of the data
+
+```r
+top_hits &lt;- output_hits_pat$ensembl_gene_id[output_hits_pat$P.Value&lt;0.05]
+heatmap_matrix_tophits &lt;- t(
+  scale(t(heatmap_matrix[
+*   which(rownames(heatmap_matrix) %in% top_hits),])))
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+```
+
+???
+scale is a generic function that centres of scales the columns of a numeric matrix
+
+---
+Heatmap of top hits using Limma (accounting for patient variability) - 
+  * p-value &lt; 0.05
+
+```r
+current_heatmap
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-41-1.png)&lt;!-- --&gt;
+
+
+---
+
+
+```r
+heatmap_matrix_tophits&lt;- heatmap_matrix_tophits[, 
+                     c(                    
+                     grep(colnames(heatmap_matrix_tophits),pattern = "\\+"),                            grep(colnames(heatmap_matrix_tophits),pattern = "\\-")
+                      )]
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+*                          cluster_columns = FALSE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+```
+
+---
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-43-1.png)&lt;!-- --&gt;
+
+???
+As we saw from the MDS plot the separation between my samples is not great.  We can try and correct for that but unfortunately, there is only so much that will help.
+
+---
+Try for a slightly cleaner picture.
+
+```r
+*top_hits &lt;- output_hits_pat$ensembl_gene_id[output_hits_pat$P.Value&lt;0.01]
+heatmap_matrix_tophits &lt;- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) %in% top_hits),]))) 
+
+heatmap_matrix_tophits&lt;- heatmap_matrix_tophits[,
+       c(grep(colnames(heatmap_matrix_tophits),pattern = "\\+"),                            grep(colnames(heatmap_matrix_tophits),pattern = "\\-"))]
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                  cluster_rows = TRUE,  show_row_dend = TRUE,
+*                 cluster_columns = FALSE,show_column_dend = FALSE,
+                  col=heatmap_col,show_column_names = TRUE, 
+                  show_row_names = FALSE,show_heatmap_legend = TRUE)
+```
+
+---
+Heatmap of top hits using Limma (accounting for patient variability) - 
+  * p-value &lt; 0.05
+  * Columns ordered by cell type.
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-45-1.png)&lt;!-- --&gt;
+
+---
+
+### EdgeR
+  * Analysis package designed for the processing of RNASeq data.
+  * Interestingly, the Limma guide direct users to use edgeR up to the point of calculating differential expression.
+  * And limma and edgeR are all written by the same people though...
+  * There are many different models available in edgeR that can be used for differential expression.
+    * exactTest - used for models that only have one factor
+    * Quasi liklihood - used for more complicated models and is highly recommended for bulk RNASeq experiments. (glmQLFTest)
+    * liklihood ratio test - can be useful for some experiments with limit number of samples or single sample RNA Seq.. (glmLRTest)
+    
+---
+
+Review from last class: Set up our edgeR objects
+
+
+
+
+```r
+d = DGEList(counts=filtered_data_matrix, group=samples$cell_type)
+```
+
+--
+
+Estimate Dispersion - our model design. 
+
+
+```r
+d &lt;- estimateDisp(d, model_design_pat)
+```
+
+
+--
+
+Fit the model
+
+
+```r
+fit &lt;- glmQLFit(d, model_design_pat)
+```
+
+---
+
+
+```r
+kable(model_design_pat[1:10,1:5], type="html") %&gt;%
+  row_spec(0, angle = -45)
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;-webkit-transform: rotate(-45deg); -moz-transform: rotate(-45deg); -ms-transform: rotate(-45deg); -o-transform: rotate(-45deg); transform: rotate(-45deg);"&gt; (Intercept) &lt;/th&gt;
+   &lt;th style="text-align:right;-webkit-transform: rotate(-45deg); -moz-transform: rotate(-45deg); -ms-transform: rotate(-45deg); -o-transform: rotate(-45deg); transform: rotate(-45deg);"&gt; samples$patientsB &lt;/th&gt;
+   &lt;th style="text-align:right;-webkit-transform: rotate(-45deg); -moz-transform: rotate(-45deg); -ms-transform: rotate(-45deg); -o-transform: rotate(-45deg); transform: rotate(-45deg);"&gt; samples$patientsC &lt;/th&gt;
+   &lt;th style="text-align:right;-webkit-transform: rotate(-45deg); -moz-transform: rotate(-45deg); -ms-transform: rotate(-45deg); -o-transform: rotate(-45deg); transform: rotate(-45deg);"&gt; samples$patientsD &lt;/th&gt;
+   &lt;th style="text-align:right;-webkit-transform: rotate(-45deg); -moz-transform: rotate(-45deg); -ms-transform: rotate(-45deg); -o-transform: rotate(-45deg); transform: rotate(-45deg);"&gt; samples$patientsE &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+
+Calculate differential expression using the Quasi liklihood model
+
+
+```r
+qlf.pos_vs_neg &lt;- glmQLFTest(fit, coef='samples$cell_typeCA125+')
+kable(topTags(qlf.pos_vs_neg), type="html")
+```
+
+&lt;table class="kable_wrapper"&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td&gt; 
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logFC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logCPM &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; F &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PValue &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; FDR &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000182752 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.2775281 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.7763253 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35.42360 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000425 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.3654997 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000198804 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5969046 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 13.5106123 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34.18749 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.3654997 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000240864 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.0704267 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.7698429 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 55.33012 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000571 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.3654997 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000237973 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5913714 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.7910172 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30.98434 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000818 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.3705585 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000102755 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.3577028 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.5717883 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 29.92806 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0000965 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.3705585 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000198695 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.4370418 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.9070099 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26.08487 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0001832 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5859799 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000211625 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.9089985 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.8364482 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 31.99077 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002658 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.6229630 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000188641 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0969060 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.9514876 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.53251 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0002909 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.6229630 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000249119 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.4797346 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.5308891 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.17139 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0003114 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.6229630 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000026508 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0787591 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.4785833 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22.56846 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0003495 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.6229630 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+ &lt;/td&gt;
+   &lt;td&gt; 
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; x &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BH &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+ &lt;/td&gt;
+   &lt;td&gt; 
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; x &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; samples$cell_typeCA125+ &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+ &lt;/td&gt;
+   &lt;td&gt; 
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; x &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; glm &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+ &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+
+Get all the results
+
+```r
+qlf_output_hits &lt;- topTags(qlf.pos_vs_neg,sort.by = "PValue",
+                           n = nrow(normalized_count_data))
+```
+
+
+How many gene pass the threshold p-value &lt; 0.05?
+
+
+```r
+length(which(qlf_output_hits$table$PValue &lt; 0.05))
+```
+
+```
+## [1] 1360
+```
+
+How many genes pass correction?
+--
+
+```r
+length(which(qlf_output_hits$table$FDR &lt; 0.05))
+```
+
+```
+## [1] 0
+```
+
+---
+Compare the results from the two different models
+  * Limma vs Quasi liklihood
+
+
+```r
+qlf_pat_model_pvalues &lt;- data.frame(
+          ensembl_id = rownames(qlf_output_hits$table),
+          qlf_patient_pvalue=qlf_output_hits$table$PValue)
+limma_pat_model_pvalues &lt;-  data.frame(
+          ensembl_id = output_hits_pat$ensembl_gene_id,
+          limma_patient_pvalue = output_hits_pat$P.Value)
+two_models_pvalues &lt;- merge(qlf_pat_model_pvalues,
+                            limma_pat_model_pvalues,
+                            by.x=1,by.y=1)
+
+two_models_pvalues$colour &lt;- "black"
+two_models_pvalues$colour[two_models_pvalues$qlf_patient_pvalue&lt;0.05] &lt;- "orange"
+two_models_pvalues$colour[two_models_pvalues$limma_patient_pvalue&lt;0.05] &lt;- "blue"
+two_models_pvalues$colour[two_models_pvalues$qlf_patient_pvalue&lt;0.05 &amp; two_models_pvalues$limma_patient_pvalue&lt;0.05] &lt;- "red"
+```
+
+
+```r
+plot(two_models_pvalues$qlf_patient_pvalue,
+     two_models_pvalues$limma_patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "QLF patient model p-values",
+     ylab ="Limma Patient model p-values",
+     main="QLF vs Limma")
+```
+
+
+---
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-57-1.png)&lt;!-- --&gt;
+
+---
+
+```r
+ensembl_of_interest &lt;- normalized_count_data$ensembl_gene_id[
+  which(normalized_count_data$hgnc_symbol == "MUC16")]
+
+two_models_pvalues$colour &lt;- "grey"
+two_models_pvalues$colour[two_models_pvalues$ensembl_id==ensembl_of_interest] &lt;- "red"
+
+plot(two_models_pvalues$qlf_patient_pvalue,
+     two_models_pvalues$limma_patient_pvalue,
+     col = two_models_pvalues$colour,
+     xlab = "QLF patient model p-values",
+     ylab ="Limma Patient model p-values",
+     main="QLF vs Limma")
+
+*points(two_models_pvalues[
+* two_models_pvalues$ensembl_id==ensembl_of_interest,2:3],
+*      pch=24,  col="red", cex=1.5)
+```
+
+---
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-59-1.png)&lt;!-- --&gt;
+
+
+---
+let's come back to the initial heatmap representation of the data
+
+```r
+*top_hits &lt;- rownames(qlf_output_hits$table)[output_hits_pat$P.Value&lt;0.05]
+heatmap_matrix_tophits &lt;- t(
+* scale(t(heatmap_matrix[which(rownames(heatmap_matrix) %in% top_hits),])))
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                               show_row_dend = TRUE,
+                               show_column_dend = TRUE, 
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+```
+
+???
+scale is a generic function that centres of scales the columns of a numeric matrix
+
+---
+Heatmap of top hits using the Quasi liklihood model (p-value &lt; 0.05)
+
+```r
+current_heatmap
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-61-1.png)&lt;!-- --&gt;
+
+---
+
+Sort the columns by cell type.
+
+```r
+top_hits &lt;- rownames(qlf_output_hits$table)[output_hits_pat$P.Value&lt;0.05] 
+heatmap_matrix_tophits &lt;- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) %in% top_hits),]))) 
+
+heatmap_matrix_tophits&lt;- heatmap_matrix_tophits[,
+*      c(grep(colnames(heatmap_matrix_tophits),pattern = "\\+"),                            grep(colnames(heatmap_matrix_tophits),pattern = "\\-"))]
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                           cluster_rows = TRUE,
+*                          cluster_columns = FALSE,
+                               show_row_dend = TRUE,
+*                              show_column_dend = FALSE,
+                               col=heatmap_col,
+                               show_column_names = TRUE, 
+                               show_row_names = FALSE,
+                               show_heatmap_legend = TRUE,
+                               )
+```
+
+---
+Heatmap of top hits using the Quasi liklihood model (p-value &lt; 0.05)
+  * sort columns according to cell type
+
+```r
+current_heatmap
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-63-1.png)&lt;!-- --&gt;
+
+
+---
+
+## The Cancer Genome Atlas (TCGA)
+
+&lt;img src=./images/img_lecture5/TCGA.png&gt;
+
+???
+Currently hosted data on the GDC - Genome data commons
+Some of the data is open access - data is not traceable to individual patient
+Some of the data is restricted and you need to apply to get it
+Sequnces - 20,000 cancer samples in depth - RNASeq, Microarray, microRNA, CNV , methylation SNP ...
+
+---
+## Get TCGA OV data
+
+```r
+library(TCGAbiolinks)
+library("SummarizedExperiment")
+```
+
+* Get the counts data 
+
+```r
+query_counts &lt;- GDCquery(project = "TCGA-OV", 
+                   data.category = "Transcriptome Profiling",
+                   data.type = "Gene Expression Quantification",
+                   experimental.strategy = "RNA-Seq",
+                   workflow.type = "HTSeq - Counts" ,
+*                  legacy = FALSE)
+```
+
+```
+## --------------------------------------
+```
+
+```
+## o GDCquery: Searching in GDC database
+```
+
+```
+## --------------------------------------
+```
+
+```
+## Genome of reference: hg38
+```
+
+```
+## --------------------------------------------
+```
+
+```
+## oo Accessing GDC. This might take a while...
+```
+
+```
+## --------------------------------------------
+```
+
+```
+## ooo Project: TCGA-OV
+```
+
+```
+## --------------------
+```
+
+```
+## oo Filtering results
+```
+
+```
+## --------------------
+```
+
+```
+## ooo By experimental.strategy
+```
+
+```
+## ooo By data.type
+```
+
+```
+## ooo By workflow.type
+```
+
+```
+## ----------------
+```
+
+```
+## oo Checking data
+```
+
+```
+## ----------------
+```
+
+```
+## ooo Check if there are duplicated cases
+```
+
+```
+## ooo Check if there results for the query
+```
+
+```
+## -------------------
+```
+
+```
+## o Preparing output
+```
+
+```
+## -------------------
+```
+
+```r
+ GDCdownload(query_counts)
+```
+
+```
+## Downloading data for project TCGA-OV
+```
+
+```
+## Of the 379 files for download 379 already exist.
+```
+
+```
+## All samples have been already downloaded
+```
+
+```r
+ OVRnaseqSE_counts &lt;- GDCprepare(query_counts)
+```
+
+```
+## 
+|                                                    |  0%                      
+|                                                    |0.2638522% ~31 s remaining
+|                                                    |0.5277045% ~26 s remaining
+|                                                    |0.7915567% ~24 s remaining
+|                                                    |1.055409% ~24 s remaining 
+|                                                    |1.319261% ~23 s remaining 
+|                                                    |1.583113% ~23 s remaining 
+|                                                    |1.846966% ~23 s remaining 
+|=                                                   |2.110818% ~23 s remaining 
+|=                                                   |2.37467% ~23 s remaining  
+|=                                                   |2.638522% ~23 s remaining 
+|=                                                   |2.902375% ~23 s remaining 
+|=                                                   |3.166227% ~22 s remaining 
+|=                                                   |3.430079% ~22 s remaining 
+|=                                                   |3.693931% ~22 s remaining 
+|==                                                  |3.957784% ~22 s remaining 
+|==                                                  |4.221636% ~22 s remaining 
+|==                                                  |4.485488% ~22 s remaining 
+|==                                                  |4.74934% ~22 s remaining  
+|==                                                  |5.013193% ~22 s remaining 
+|==                                                  |5.277045% ~22 s remaining 
+|==                                                  |5.540897% ~21 s remaining 
+|===                                                 |5.804749% ~22 s remaining 
+|===                                                 |6.068602% ~22 s remaining 
+|===                                                 |6.332454% ~22 s remaining 
+|===                                                 |6.596306% ~22 s remaining 
+|===                                                 |6.860158% ~22 s remaining 
+|===                                                 |7.124011% ~22 s remaining 
+|===                                                 |7.387863% ~22 s remaining 
+|===                                                 |7.651715% ~22 s remaining 
+|====                                                |7.915567% ~21 s remaining 
+|====                                                |8.17942% ~21 s remaining  
+|====                                                |8.443272% ~21 s remaining 
+|====                                                |8.707124% ~21 s remaining 
+|====                                                |8.970976% ~21 s remaining 
+|====                                                |9.234828% ~21 s remaining 
+|====                                                |9.498681% ~21 s remaining 
+|=====                                               |9.762533% ~21 s remaining 
+|=====                                               |10.02639% ~21 s remaining 
+|=====                                               |10.29024% ~21 s remaining 
+|=====                                               |10.55409% ~21 s remaining 
+|=====                                               |10.81794% ~21 s remaining 
+|=====                                               |11.08179% ~20 s remaining 
+|=====                                               |11.34565% ~21 s remaining 
+|======                                              |11.6095% ~21 s remaining  
+|======                                              |11.87335% ~21 s remaining 
+|======                                              |12.1372% ~20 s remaining  
+|======                                              |12.40106% ~20 s remaining 
+|======                                              |12.66491% ~20 s remaining 
+|======                                              |12.92876% ~20 s remaining 
+|======                                              |13.19261% ~20 s remaining 
+|======                                              |13.45646% ~20 s remaining 
+|=======                                             |13.72032% ~20 s remaining 
+|=======                                             |13.98417% ~20 s remaining 
+|=======                                             |14.24802% ~20 s remaining 
+|=======                                             |14.51187% ~20 s remaining 
+|=======                                             |14.77573% ~20 s remaining 
+|=======                                             |15.03958% ~20 s remaining 
+|=======                                             |15.30343% ~19 s remaining 
+|========                                            |15.56728% ~19 s remaining 
+|========                                            |15.83113% ~19 s remaining 
+|========                                            |16.09499% ~19 s remaining 
+|========                                            |16.35884% ~19 s remaining 
+|========                                            |16.62269% ~19 s remaining 
+|========                                            |16.88654% ~19 s remaining 
+|========                                            |17.1504% ~19 s remaining  
+|=========                                           |17.41425% ~19 s remaining 
+|=========                                           |17.6781% ~19 s remaining  
+|=========                                           |17.94195% ~19 s remaining 
+|=========                                           |18.2058% ~19 s remaining  
+|=========                                           |18.46966% ~19 s remaining 
+|=========                                           |18.73351% ~18 s remaining 
+|=========                                           |18.99736% ~18 s remaining 
+|==========                                          |19.26121% ~18 s remaining 
+|==========                                          |19.52507% ~18 s remaining 
+|==========                                          |19.78892% ~18 s remaining 
+|==========                                          |20.05277% ~18 s remaining 
+|==========                                          |20.31662% ~18 s remaining 
+|==========                                          |20.58047% ~18 s remaining 
+|==========                                          |20.84433% ~18 s remaining 
+|==========                                          |21.10818% ~18 s remaining 
+|===========                                         |21.37203% ~18 s remaining 
+|===========                                         |21.63588% ~18 s remaining 
+|===========                                         |21.89974% ~18 s remaining 
+|===========                                         |22.16359% ~18 s remaining 
+|===========                                         |22.42744% ~18 s remaining 
+|===========                                         |22.69129% ~17 s remaining 
+|===========                                         |22.95515% ~17 s remaining 
+|============                                        |23.219% ~17 s remaining   
+|============                                        |23.48285% ~17 s remaining 
+|============                                        |23.7467% ~17 s remaining  
+|============                                        |24.01055% ~17 s remaining 
+|============                                        |24.27441% ~17 s remaining 
+|============                                        |24.53826% ~17 s remaining 
+|============                                        |24.80211% ~17 s remaining 
+|=============                                       |25.06596% ~17 s remaining 
+|=============                                       |25.32982% ~17 s remaining 
+|=============                                       |25.59367% ~17 s remaining 
+|=============                                       |25.85752% ~17 s remaining 
+|=============                                       |26.12137% ~17 s remaining 
+|=============                                       |26.38522% ~17 s remaining 
+|=============                                       |26.64908% ~16 s remaining 
+|=============                                       |26.91293% ~16 s remaining 
+|==============                                      |27.17678% ~16 s remaining 
+|==============                                      |27.44063% ~16 s remaining 
+|==============                                      |27.70449% ~16 s remaining 
+|==============                                      |27.96834% ~16 s remaining 
+|==============                                      |28.23219% ~16 s remaining 
+|==============                                      |28.49604% ~16 s remaining 
+|==============                                      |28.75989% ~16 s remaining 
+|===============                                     |29.02375% ~16 s remaining 
+|===============                                     |29.2876% ~16 s remaining  
+|===============                                     |29.55145% ~16 s remaining 
+|===============                                     |29.8153% ~16 s remaining  
+|===============                                     |30.07916% ~16 s remaining 
+|===============                                     |30.34301% ~16 s remaining 
+|===============                                     |30.60686% ~16 s remaining 
+|================                                    |30.87071% ~16 s remaining 
+|================                                    |31.13456% ~15 s remaining 
+|================                                    |31.39842% ~15 s remaining 
+|================                                    |31.66227% ~15 s remaining 
+|================                                    |31.92612% ~15 s remaining 
+|================                                    |32.18997% ~15 s remaining 
+|================                                    |32.45383% ~15 s remaining 
+|=================                                   |32.71768% ~15 s remaining 
+|=================                                   |32.98153% ~15 s remaining 
+|=================                                   |33.24538% ~15 s remaining 
+|=================                                   |33.50923% ~15 s remaining 
+|=================                                   |33.77309% ~15 s remaining 
+|=================                                   |34.03694% ~15 s remaining 
+|=================                                   |34.30079% ~15 s remaining 
+|=================                                   |34.56464% ~15 s remaining 
+|==================                                  |34.8285% ~15 s remaining  
+|==================                                  |35.09235% ~15 s remaining 
+|==================                                  |35.3562% ~14 s remaining  
+|==================                                  |35.62005% ~14 s remaining 
+|==================                                  |35.88391% ~14 s remaining 
+|==================                                  |36.14776% ~14 s remaining 
+|==================                                  |36.41161% ~14 s remaining 
+|===================                                 |36.67546% ~14 s remaining 
+|===================                                 |36.93931% ~14 s remaining 
+|===================                                 |37.20317% ~14 s remaining 
+|===================                                 |37.46702% ~14 s remaining 
+|===================                                 |37.73087% ~14 s remaining 
+|===================                                 |37.99472% ~14 s remaining 
+|===================                                 |38.25858% ~14 s remaining 
+|====================                                |38.52243% ~14 s remaining 
+|====================                                |38.78628% ~14 s remaining 
+|====================                                |39.05013% ~14 s remaining 
+|====================                                |39.31398% ~14 s remaining 
+|====================                                |39.57784% ~14 s remaining 
+|====================                                |39.84169% ~14 s remaining 
+|====================                                |40.10554% ~14 s remaining 
+|====================                                |40.36939% ~14 s remaining 
+|=====================                               |40.63325% ~14 s remaining 
+|=====================                               |40.8971% ~13 s remaining  
+|=====================                               |41.16095% ~13 s remaining 
+|=====================                               |41.4248% ~13 s remaining  
+|=====================                               |41.68865% ~13 s remaining 
+|=====================                               |41.95251% ~13 s remaining 
+|=====================                               |42.21636% ~13 s remaining 
+|======================                              |42.48021% ~13 s remaining 
+|======================                              |42.74406% ~13 s remaining 
+|======================                              |43.00792% ~13 s remaining 
+|======================                              |43.27177% ~13 s remaining 
+|======================                              |43.53562% ~13 s remaining 
+|======================                              |43.79947% ~13 s remaining 
+|======================                              |44.06332% ~13 s remaining 
+|=======================                             |44.32718% ~13 s remaining 
+|=======================                             |44.59103% ~13 s remaining 
+|=======================                             |44.85488% ~13 s remaining 
+|=======================                             |45.11873% ~13 s remaining 
+|=======================                             |45.38259% ~13 s remaining 
+|=======================                             |45.64644% ~13 s remaining 
+|=======================                             |45.91029% ~13 s remaining 
+|========================                            |46.17414% ~13 s remaining 
+|========================                            |46.43799% ~12 s remaining 
+|========================                            |46.70185% ~12 s remaining 
+|========================                            |46.9657% ~12 s remaining  
+|========================                            |47.22955% ~12 s remaining 
+|========================                            |47.4934% ~12 s remaining  
+|========================                            |47.75726% ~12 s remaining 
+|========================                            |48.02111% ~12 s remaining 
+|=========================                           |48.28496% ~12 s remaining 
+|=========================                           |48.54881% ~12 s remaining 
+|=========================                           |48.81266% ~12 s remaining 
+|=========================                           |49.07652% ~12 s remaining 
+|=========================                           |49.34037% ~12 s remaining 
+|=========================                           |49.60422% ~12 s remaining 
+|=========================                           |49.86807% ~12 s remaining 
+|==========================                          |50.13193% ~12 s remaining 
+|==========================                          |50.39578% ~12 s remaining 
+|==========================                          |50.65963% ~11 s remaining 
+|==========================                          |50.92348% ~11 s remaining 
+|==========================                          |51.18734% ~11 s remaining 
+|==========================                          |51.45119% ~11 s remaining 
+|==========================                          |51.71504% ~11 s remaining 
+|===========================                         |51.97889% ~11 s remaining 
+|===========================                         |52.24274% ~11 s remaining 
+|===========================                         |52.5066% ~11 s remaining  
+|===========================                         |52.77045% ~11 s remaining 
+|===========================                         |53.0343% ~11 s remaining  
+|===========================                         |53.29815% ~11 s remaining 
+|===========================                         |53.56201% ~11 s remaining 
+|===========================                         |53.82586% ~11 s remaining 
+|============================                        |54.08971% ~11 s remaining 
+|============================                        |54.35356% ~11 s remaining 
+|============================                        |54.61741% ~10 s remaining 
+|============================                        |54.88127% ~10 s remaining 
+|============================                        |55.14512% ~10 s remaining 
+|============================                        |55.40897% ~10 s remaining 
+|============================                        |55.67282% ~10 s remaining 
+|=============================                       |55.93668% ~10 s remaining 
+|=============================                       |56.20053% ~10 s remaining 
+|=============================                       |56.46438% ~10 s remaining 
+|=============================                       |56.72823% ~10 s remaining 
+|=============================                       |56.99208% ~10 s remaining 
+|=============================                       |57.25594% ~10 s remaining 
+|=============================                       |57.51979% ~10 s remaining 
+|==============================                      |57.78364% ~10 s remaining 
+|==============================                      |58.04749% ~10 s remaining 
+|==============================                      |58.31135% ~10 s remaining 
+|==============================                      |58.5752% ~10 s remaining  
+|==============================                      |58.83905% ~10 s remaining 
+|==============================                      |59.1029% ~9 s remaining   
+|==============================                      |59.36675% ~9 s remaining  
+|===============================                     |59.63061% ~9 s remaining  
+|===============================                     |59.89446% ~9 s remaining  
+|===============================                     |60.15831% ~9 s remaining  
+|===============================                     |60.42216% ~9 s remaining  
+|===============================                     |60.68602% ~9 s remaining  
+|===============================                     |60.94987% ~9 s remaining  
+|===============================                     |61.21372% ~9 s remaining  
+|===============================                     |61.47757% ~9 s remaining  
+|================================                    |61.74142% ~9 s remaining  
+|================================                    |62.00528% ~9 s remaining  
+|================================                    |62.26913% ~9 s remaining  
+|================================                    |62.53298% ~9 s remaining  
+|================================                    |62.79683% ~9 s remaining  
+|================================                    |63.06069% ~9 s remaining  
+|================================                    |63.32454% ~9 s remaining  
+|=================================                   |63.58839% ~9 s remaining  
+|=================================                   |63.85224% ~8 s remaining  
+|=================================                   |64.11609% ~8 s remaining  
+|=================================                   |64.37995% ~8 s remaining  
+|=================================                   |64.6438% ~8 s remaining   
+|=================================                   |64.90765% ~8 s remaining  
+|=================================                   |65.1715% ~8 s remaining   
+|==================================                  |65.43536% ~8 s remaining  
+|==================================                  |65.69921% ~8 s remaining  
+|==================================                  |65.96306% ~8 s remaining  
+|==================================                  |66.22691% ~8 s remaining  
+|==================================                  |66.49077% ~8 s remaining  
+|==================================                  |66.75462% ~8 s remaining  
+|==================================                  |67.01847% ~8 s remaining  
+|==================================                  |67.28232% ~8 s remaining  
+|===================================                 |67.54617% ~8 s remaining  
+|===================================                 |67.81003% ~8 s remaining  
+|===================================                 |68.07388% ~7 s remaining  
+|===================================                 |68.33773% ~7 s remaining  
+|===================================                 |68.60158% ~7 s remaining  
+|===================================                 |68.86544% ~7 s remaining  
+|===================================                 |69.12929% ~7 s remaining  
+|====================================                |69.39314% ~7 s remaining  
+|====================================                |69.65699% ~7 s remaining  
+|====================================                |69.92084% ~7 s remaining  
+|====================================                |70.1847% ~7 s remaining   
+|====================================                |70.44855% ~7 s remaining  
+|====================================                |70.7124% ~7 s remaining   
+|====================================                |70.97625% ~7 s remaining  
+|=====================================               |71.24011% ~7 s remaining  
+|=====================================               |71.50396% ~7 s remaining  
+|=====================================               |71.76781% ~7 s remaining  
+|=====================================               |72.03166% ~7 s remaining  
+|=====================================               |72.29551% ~6 s remaining  
+|=====================================               |72.55937% ~6 s remaining  
+|=====================================               |72.82322% ~6 s remaining  
+|======================================              |73.08707% ~6 s remaining  
+|======================================              |73.35092% ~6 s remaining  
+|======================================              |73.61478% ~6 s remaining  
+|======================================              |73.87863% ~6 s remaining  
+|======================================              |74.14248% ~6 s remaining  
+|======================================              |74.40633% ~6 s remaining  
+|======================================              |74.67018% ~6 s remaining  
+|======================================              |74.93404% ~6 s remaining  
+|=======================================             |75.19789% ~6 s remaining  
+|=======================================             |75.46174% ~6 s remaining  
+|=======================================             |75.72559% ~6 s remaining  
+|=======================================             |75.98945% ~6 s remaining  
+|=======================================             |76.2533% ~6 s remaining   
+|=======================================             |76.51715% ~5 s remaining  
+|=======================================             |76.781% ~5 s remaining    
+|========================================            |77.04485% ~5 s remaining  
+|========================================            |77.30871% ~5 s remaining  
+|========================================            |77.57256% ~5 s remaining  
+|========================================            |77.83641% ~5 s remaining  
+|========================================            |78.10026% ~5 s remaining  
+|========================================            |78.36412% ~5 s remaining  
+|========================================            |78.62797% ~5 s remaining  
+|=========================================           |78.89182% ~5 s remaining  
+|=========================================           |79.15567% ~5 s remaining  
+|=========================================           |79.41953% ~5 s remaining  
+|=========================================           |79.68338% ~5 s remaining  
+|=========================================           |79.94723% ~5 s remaining  
+|=========================================           |80.21108% ~5 s remaining  
+|=========================================           |80.47493% ~5 s remaining  
+|=========================================           |80.73879% ~4 s remaining  
+|==========================================          |81.00264% ~4 s remaining  
+|==========================================          |81.26649% ~4 s remaining  
+|==========================================          |81.53034% ~4 s remaining  
+|==========================================          |81.7942% ~4 s remaining   
+|==========================================          |82.05805% ~4 s remaining  
+|==========================================          |82.3219% ~4 s remaining   
+|==========================================          |82.58575% ~4 s remaining  
+|===========================================         |82.8496% ~4 s remaining   
+|===========================================         |83.11346% ~4 s remaining  
+|===========================================         |83.37731% ~4 s remaining  
+|===========================================         |83.64116% ~4 s remaining  
+|===========================================         |83.90501% ~4 s remaining  
+|===========================================         |84.16887% ~4 s remaining  
+|===========================================         |84.43272% ~4 s remaining  
+|============================================        |84.69657% ~4 s remaining  
+|============================================        |84.96042% ~4 s remaining  
+|============================================        |85.22427% ~3 s remaining  
+|============================================        |85.48813% ~3 s remaining  
+|============================================        |85.75198% ~3 s remaining  
+|============================================        |86.01583% ~3 s remaining  
+|============================================        |86.27968% ~3 s remaining  
+|=============================================       |86.54354% ~3 s remaining  
+|=============================================       |86.80739% ~3 s remaining  
+|=============================================       |87.07124% ~3 s remaining  
+|=============================================       |87.33509% ~3 s remaining  
+|=============================================       |87.59894% ~3 s remaining  
+|=============================================       |87.8628% ~3 s remaining   
+|=============================================       |88.12665% ~3 s remaining  
+|=============================================       |88.3905% ~3 s remaining   
+|==============================================      |88.65435% ~3 s remaining  
+|==============================================      |88.91821% ~3 s remaining  
+|==============================================      |89.18206% ~3 s remaining  
+|==============================================      |89.44591% ~2 s remaining  
+|==============================================      |89.70976% ~2 s remaining  
+|==============================================      |89.97361% ~2 s remaining  
+|==============================================      |90.23747% ~2 s remaining  
+|===============================================     |90.50132% ~2 s remaining  
+|===============================================     |90.76517% ~2 s remaining  
+|===============================================     |91.02902% ~2 s remaining  
+|===============================================     |91.29288% ~2 s remaining  
+|===============================================     |91.55673% ~2 s remaining  
+|===============================================     |91.82058% ~2 s remaining  
+|===============================================     |92.08443% ~2 s remaining  
+|================================================    |92.34828% ~2 s remaining  
+|================================================    |92.61214% ~2 s remaining  
+|================================================    |92.87599% ~2 s remaining  
+|================================================    |93.13984% ~2 s remaining  
+|================================================    |93.40369% ~2 s remaining  
+|================================================    |93.66755% ~1 s remaining  
+|================================================    |93.9314% ~1 s remaining   
+|================================================    |94.19525% ~1 s remaining  
+|=================================================   |94.4591% ~1 s remaining   
+|=================================================   |94.72296% ~1 s remaining  
+|=================================================   |94.98681% ~1 s remaining  
+|=================================================   |95.25066% ~1 s remaining  
+|=================================================   |95.51451% ~1 s remaining  
+|=================================================   |95.77836% ~1 s remaining  
+|=================================================   |96.04222% ~1 s remaining  
+|==================================================  |96.30607% ~1 s remaining  
+|==================================================  |96.56992% ~1 s remaining  
+|==================================================  |96.83377% ~1 s remaining  
+|==================================================  |97.09763% ~1 s remaining  
+|==================================================  |97.36148% ~1 s remaining  
+|==================================================  |97.62533% ~1 s remaining  
+|==================================================  |97.88918% ~0 s remaining  
+|=================================================== |98.15303% ~0 s remaining  
+|=================================================== |98.41689% ~0 s remaining  
+|=================================================== |98.68074% ~0 s remaining  
+|=================================================== |98.94459% ~0 s remaining  
+|=================================================== |99.20844% ~0 s remaining  
+|=================================================== |99.4723% ~0 s remaining   
+|=================================================== |99.73615% ~0 s remaining  
+|====================================================|100% ~0 s remaining       
+|====================================================|100%                      Completed after 23 s
+```
+
+```
+## Starting to add information to samples
+```
+
+```
+##  =&gt; Add clinical information to samples
+```
+
+```
+## Add FFPE information. More information at: 
+## =&gt; https://cancergenome.nih.gov/cancersselected/biospeccriteria 
+## =&gt; http://gdac.broadinstitute.org/runs/sampleReports/latest/FPPP_FFPE_Cases.html
+```
+
+```
+##  =&gt; Adding subtype information to samples
+```
+
+```
+## Accessing www.ensembl.org to get gene information
+```
+
+```
+## Accessing www.ensembl.org (mirror useast)
+```
+
+```
+## Downloading genome information (try:1) Using: Human genes (GRCh38.p13)
+```
+
+```
+## From the 60483 genes we couldn't map 3984
+```
+
+
+---
+## TCGA Biolinks
+[TCGABiolink](https://bioconductor.org/packages/release/bioc/html/TCGAbiolinks.html) - docker image!
+
+&lt;img src=./images/img_lecture5/TCGA_docker.png&gt;
+
+
+---
+## Ovarian Cancer - TCGA data
+### Of note, Output from the GDCprepare: 
+  * GDCquery: Searching in GDC database
+    * Genome of reference: hg38
+  * Accessing GDC. This might take a while...
+  * Project: TCGA-OV
+  * Filtering results
+    * By experimental.strategy
+    * By data.type
+    * By workflow.type
+  * Checking data
+    * Check if there are duplicated cases
+    * Check if there results for the query
+  *  Preparing output
+    * Downloading data for project TCGA-OV
+    * GDCdownload will download '''379''' files. A total of 97.709866 MB
+    * Downloading as: Mon_Feb__3_20_24_38_2020.tar.gz
+---
+
+### Of note, Output from the GDCprepare: Cont'd 
+
+Starting to add information to samples
+    * Add clinical information to samples
+ 
+Add FFPE information. More information at: 
+    * https://cancergenome.nih.gov/cancersselected/biospeccriteria 
+    * http://gdac.broadinstitute.org/runs/sampleReports/latest/FPPP_FFPE_Cases.html
+    * Adding subtype information to samples
+
+Accessing www.ensembl.org to get gene information
+    * Downloading genome information (try:0) Using: Human genes (GRCh38.p13)
+From the 60483 genes we couldn't map 3984"
+
+---
+
+## Experimental Design?
+
+--
+&lt;img src=./images/img_lecture5/OV_classes.png&gt;
+
+&lt;font size=2&gt;Verhaak el al. Cancer Genome Atlas Research Network. Prognostically relevant gene signatures of high-grade serous ovarian carcinoma. J Clin Invest. 2013 Jan;123(1):517-25.[PMID](https://www.ncbi.nlm.nih.gov/pubmed/23257362)&lt;/font&gt;
+
+
+---
+
+Load in the predefined classes as described in the Verhaak et al paper.
+
+
+```r
+classDefinitions_RNASeq &lt;- read.table( 
+  file.path("data", "Supplementary_Table11_RNASeq_classdefinitions.txt"), 
+  header = TRUE, sep = "\t", quote="\"", stringsAsFactors = FALSE)
+
+tcga.read.counts &lt;- assay(OVRnaseqSE_counts)
+colnames(tcga.read.counts) &lt;- gsub(colnames(tcga.read.counts),
+                                   pattern = "-",replacement = "\\.")
+```
+
+How many of the samples in the Verhaak paper are in out TCGA data
+
+--
+
+```r
+length(which(classDefinitions_RNASeq$patient %in% colnames(tcga.read.counts)))
+```
+
+```
+## [1] 257
+```
+
+---
+
+Add the missing samples to the class definitions table
+
+```r
+missing_patients &lt;- colnames(tcga.read.counts)[
+  which(!colnames(tcga.read.counts) %in% classDefinitions_RNASeq$patient)]
+
+missing_subtypes &lt;- data.frame(barcode = substring(missing_patients,1,12),
+                               patient =missing_patients , 
+                               SUBTYPE = "Not_defined")
+classDefinitions_RNASeq &lt;- rbind(classDefinitions_RNASeq,
+                                missing_subtypes )
+classDefinitions_RNASeq &lt;- classDefinitions_RNASeq[
+  which(classDefinitions_RNASeq$patient %in% colnames(tcga.read.counts)),]
+
+classDefinitions_RNASeq &lt;- classDefinitions_RNASeq[order(classDefinitions_RNASeq$patient),]
+tcga.read.counts &lt;- tcga.read.counts[,order(colnames(tcga.read.counts))]
+```
+
+
+---
+filter the data
+
+
+```r
+cpms &lt;- cpm(tcga.read.counts)
+keep &lt;- rowSums(cpms &gt; 1) &gt;= 50
+counts &lt;- tcga.read.counts[keep,]
+```
+
+--
+Normalize the data
+
+```r
+# create data structure to hold counts and subtype information for each sample.
+d &lt;- DGEList(counts=counts, group=classDefinitions_RNASeq$SUBTYPE)
+
+#Normalize the data
+d &lt;- calcNormFactors(d)
+```
+
+---
+Plot MDS plot of samples
+
+```r
+mds_filename &lt;- file.path("data", "mdsplot_allsamples.png")
+png(filename = mds_filename)
+mds_output &lt;- plotMDS(d, labels=NULL, pch = 1, 
+col= c("darkgreen","blue","red", "orange","black")[factor(classDefinitions_RNASeq$SUBTYPE)])
+
+
+legend("topright", 
+       legend=levels(factor(classDefinitions_RNASeq$SUBTYPE)), 
+       pch=c(1), col= c("darkgreen","blue","red", "orange","black"),
+       title="Class",  
+       bty = 'n', cex = 0.75)
+
+dev.off()
+```
+
+```
+## quartz_off_screen 
+##                 2
+```
+
+---
+
+&lt;img src="data/mdsplot_allsamples.png"&gt;
+
+---
+
+At this stage I am going to reduce the samples to only the ones we have subtype information for.
+
+
+```r
+keep_samples &lt;- classDefinitions_RNASeq$patient[
+  classDefinitions_RNASeq$SUBTYPE != "Not_defined"]
+
+classDefinitions_RNASeq &lt;- classDefinitions_RNASeq[  classDefinitions_RNASeq$SUBTYPE != "Not_defined",]
+counts &lt;- counts[,keep_samples]
+```
+
+Normalize the data
+
+```r
+# create data structure to hold counts and subtype information for each sample.
+d &lt;- DGEList(counts=counts, group=classDefinitions_RNASeq$SUBTYPE)
+
+#Normalize the data
+d &lt;- calcNormFactors(d)
+```
+
+
+---
+Plot MDS plot of samples
+
+```r
+mds_filename &lt;- file.path("data", "mdsplot_allsamples_minus_undef.png")
+png(filename = mds_filename)
+mds_output &lt;- plotMDS(d, labels=NULL, pch = 1, 
+col= c("darkgreen","blue","red", "orange","black")[factor(classDefinitions_RNASeq$SUBTYPE)])
+
+
+legend("topright", 
+       legend=levels(factor(classDefinitions_RNASeq$SUBTYPE)), 
+       pch=c(1), col= c("darkgreen","blue","red", "orange"),
+       title="Class",  
+       bty = 'n', cex = 0.75)
+
+dev.off()
+```
+
+```
+## quartz_off_screen 
+##                 2
+```
+
+---
+
+&lt;img src="data/mdsplot_allsamples_minus_undef.png"&gt;
+
+---
+
+
+Define the model matrix
+
+```r
+classes &lt;- classDefinitions_RNASeq$SUBTYPE
+model_design_tcga &lt;- model.matrix(~ 0 + classes)
+model_design_tcga[1:5,1:4]
+```
+
+```
+##   classesDifferentiated classesImmunoreactive classesMesenchymal
+## 1                     0                     1                  0
+## 2                     1                     0                  0
+## 3                     0                     0                  0
+## 4                     0                     1                  0
+## 5                     0                     0                  0
+##   classesProliferative
+## 1                    0
+## 2                    0
+## 3                    1
+## 4                    0
+## 5                    1
+```
+
+---
+
+Calculate dispersion
+
+
+```r
+d &lt;- estimateDisp(d,model_design_tcga)
+```
+
+
+---
+Graphing the BCV
+  * tagwise = genewise, each dot represents the BCV for a gene
+
+```r
+plotBCV(d,col.tagwise = "black",col.common = "red")
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-77-1.png)&lt;!-- --&gt;
+
+---
+
+
+```r
+plotMeanVar(d, show.raw.vars = TRUE, show.tagwise.vars=TRUE, 
+            show.ave.raw.vars = TRUE,  
+*           NBline=TRUE,
+            show.binned.common.disp.vars = TRUE)
+```
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-78-1.png)&lt;!-- --&gt;
+
+
+---
+
+Calculate differential expression
+  * We have a lot of different option to look at here - Immuno subtype vs mesenchymal
+
+```r
+contrast_mesenvsimmuno &lt;- makeContrasts(
+                  mesenvsimmuno ="classesMesenchymal-classesImmunoreactive",
+                  levels=model_design_tcga)
+
+contrast_mesenvsimmuno
+```
+
+```
+##                        Contrasts
+## Levels                  mesenvsimmuno
+##   classesDifferentiated             0
+##   classesImmunoreactive            -1
+##   classesMesenchymal                1
+##   classesProliferative              0
+```
+
+
+---
+
+```r
+fit_qlf_tcga &lt;-glmQLFit (d,model_design_tcga)
+
+qlf.immuno_vs_mesechymal &lt;- glmQLFTest(fit_qlf_tcga, 
+                                       contrast=contrast_mesenvsimmuno)
+
+tt_mesenvsimmuno &lt;- topTags(qlf.immuno_vs_mesechymal,n=nrow(d))
+```
+
+
+---
+top hits
+
+```r
+#merge in the gene names first
+ovRNASeq_gene_countsdata &lt;- rowData(OVRnaseqSE_counts)
+
+data_display &lt;- merge(ovRNASeq_gene_countsdata[,1:2],
+                      topTags(qlf.immuno_vs_mesechymal),
+                      by.x=1, by.y = 0)
+
+kable(data_display, type="html")
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ensembl_gene_id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; external_gene_name &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logFC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logCPM &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; F &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PValue &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; FDR &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000084636 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; COL16A1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.830897 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.407136 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 120.0345 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000103196 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; CRISPLD2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.182952 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.473646 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 108.7335 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000106624 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AEBP1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.086450 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.644920 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 115.0045 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000113140 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SPARC &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.694264 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10.538137 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 108.9378 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000133466 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; C1QTNF6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.572266 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.956225 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 107.9188 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000136859 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ANGPTL2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.539721 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.191807 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 122.2606 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000166147 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; FBN1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.116491 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.015916 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 121.9697 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000169604 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ANTXR1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.664972 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.412542 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 135.3873 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000174498 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; IGDCC3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.822141 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.501262 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 123.3080 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000182492 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; BGN &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.790193 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.989584 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 107.8897 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+
+
+```r
+kable(data_display, type="html",digits = 32)
+```
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ensembl_gene_id &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; external_gene_name &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logFC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logCPM &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; F &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; PValue &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; FDR &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000084636 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; COL16A1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.830897 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.407136 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 120.0345 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.545814e-23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.359891e-19 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000103196 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; CRISPLD2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.182952 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.473646 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 108.7335 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.832311e-21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.392049e-18 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000106624 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AEBP1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.086450 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.644920 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 115.0045 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.021539e-22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.460840e-19 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000113140 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SPARC &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.694264 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10.538137 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 108.9378 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.704300e-21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.392049e-18 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000133466 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; C1QTNF6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.572266 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.956225 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 107.9188 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.446857e-21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.491265e-18 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000136859 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ANGPTL2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.539721 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.191807 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 122.2606 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.653666e-23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.756399e-20 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000166147 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; FBN1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.116491 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.015916 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 121.9697 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.826533e-23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.756399e-20 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000169604 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; ANTXR1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.664972 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.412542 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 135.3873 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.016424e-25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.866694e-21 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000174498 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; IGDCC3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.822141 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.501261 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 123.3080 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.156833e-23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.756399e-20 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ENSG00000182492 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; BGN &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.790193 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.989584 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 107.8897 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.472275e-21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.491265e-18 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+
+How many genes have p-values less than 0.05
+--
+
+
+```r
+length(which(tt_mesenvsimmuno$table$PValue&lt;0.05))
+```
+
+```
+## [1] 7521
+```
+
+How many genes pass correction?
+--
+
+```r
+length(which(tt_mesenvsimmuno$table$FDR &lt; 0.05))
+```
+
+```
+## [1] 5559
+```
+
+---
+Try a different comparison:
+  * compare immuno to the rest of the samples (not undefined though)
+
+```r
+contrast_immuno &lt;- makeContrasts(
+  immunovsrest ="classesImmunoreactive-(classesMesenchymal + 
+  classesProliferative +classesDifferentiated)/3",
+  levels=model_design_tcga)
+
+qlf.immuno_vs_all &lt;- glmQLFTest(fit_qlf_tcga, 
+                                       contrast=contrast_immuno)
+
+tt_immunovsall &lt;- topTags(qlf.immuno_vs_all,n=nrow(d))
+```
+
+---
+
+How many genes have p-values less than 0.05
+--
+
+
+```r
+length(which(tt_immunovsall$table$PValue&lt;0.05))
+```
+
+```
+## [1] 8178
+```
+
+How many genes pass correction?
+--
+
+```r
+length(which(tt_immunovsall$table$FDR &lt; 0.05))
+```
+
+```
+## [1] 6258
+```
+
+---
+
+Visualize this data set
+
+
+```r
+# get the normalized counts
+tcga_normalized_counts &lt;- log2(cpm(d) +1)
+
+#create the scaled heatmap object
+heatmap_matrix &lt;- tcga_normalized_counts
+
+*top_hits &lt;- rownames(tt_immunovsall)[which(tt_immunovsall$table$FDR &lt; 0.001)]
+heatmap_matrix_tophits &lt;- t(
+  scale(t(heatmap_matrix[which(rownames(heatmap_matrix) %in% top_hits),]))) 
+
+if(min(heatmap_matrix_tophits) == 0){
+    heatmap_col = colorRamp2(c( 0, max(heatmap_matrix_tophits)), 
+                             c( "white", "red"))
+  } else {
+    heatmap_col = colorRamp2(c(min(heatmap_matrix_tophits), 0, max(heatmap_matrix_tophits)), c("blue", "white", "red"))
+  }
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                  cluster_rows = TRUE,  show_row_dend = TRUE,
+*                 cluster_columns = TRUE,show_column_dend = FALSE,
+                  col=heatmap_col,show_column_names = FALSE, 
+                  show_row_names = FALSE,show_heatmap_legend = TRUE)
+```
+
+
+---
+Immuno vs Rest heatmap
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-89-1.png)&lt;!-- --&gt;
+
+---
+
+Annotating the heatmap could really help here.
+
+```r
+ha_colours &lt;- c("darkgreen","blue","red", "orange")
+names(ha_colours) &lt;- unique(classDefinitions_RNASeq$SUBTYPE)
+
+ha &lt;- HeatmapAnnotation(df=data.frame(
+  type = classDefinitions_RNASeq$SUBTYPE),
+  col =  list(type = ha_colours))
+
+current_heatmap &lt;- Heatmap(as.matrix(heatmap_matrix_tophits),
+                  cluster_rows = TRUE,  show_row_dend = TRUE,
+                  cluster_columns = TRUE,show_column_dend = FALSE,
+                  col=heatmap_col,show_column_names = FALSE, 
+                  show_row_names = FALSE,show_heatmap_legend = TRUE,
+*                 top_annotation = ha)
+```
+
+---
+Immuno vs Rest heatmap - annotated
+
+![](lecture5_differential_expression_files/figure-html/unnamed-chunk-91-1.png)&lt;!-- --&gt;
+
+
+---
+## Homework for next week
+
+Next week we will be looking at "What do we do with all these hits?"
+
+  * Find an annotation data set (excluding GO and Reactome) for human genes.
+  * Any data set that adds functional, process or location data to a set of genes.
+  * Record in your journal and add it to the list of annotation sources on the Student Wiki:
+    * When was it published?  Was is published?
+    * How is it released? What identifiers does it use?
+    * What sort of information does it offer us?
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"highlightSpans": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
