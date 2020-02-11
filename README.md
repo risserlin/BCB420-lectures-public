@@ -7,3 +7,5 @@
 
 
 [Lecture 5 - Differential expression](https://risserlin.github.io/BCB420-lectures-public/lecture5_differential_expression.html)
+
+[Lecture 6 - Annotation Sources and Intro to ORA](https://risserlin.github.io/BCB420-lectures-public/lecture6_annotation_resources_and_prelim_ORA.html)
