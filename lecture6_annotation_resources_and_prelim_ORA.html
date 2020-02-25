@@ -4,7 +4,7 @@
     <title>BCB420 - Computational Systems Biology</title>
     <meta charset="utf-8" />
     <meta name="author" content="Ruth Isserlin" />
-    <meta name="date" content="2020-02-11" />
+    <meta name="date" content="2020-02-23" />
     <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
     <link rel="stylesheet" href="libs/example.css" type="text/css" />
   </head>
@@ -15,7 +15,7 @@ class: center, middle, inverse, title-slide
 # BCB420 - Computational Systems Biology
 ## Lecture 6 - Annotation Dataset and Intro to Pathway analysis
 ### Ruth Isserlin
-### 2020-02-11
+### 2020-02-23
 
 ---
 
@@ -531,12 +531,15 @@ Create **thresholded** lists of genes.
 #merge gene names with the top hits
 qlf_output_hits_withgn &lt;- merge(ca125_exp[,1:2],qlf_output_hits, by.x=1, by.y = 0)
 
+qlf_output_hits_withgn[,"rank"] &lt;- -log(qlf_output_hits_withgn$PValue,base =10) * sign(qlf_output_hits_withgn$logFC)
+qlf_output_hits_withgn &lt;- qlf_output_hits_withgn[order(qlf_output_hits_withgn$rank),]
+
 upregulated_genes &lt;- qlf_output_hits_withgn$gname[
-  which(qlf_output_hits$table$PValue &lt; 0.05 
-             &amp; qlf_output_hits$table$logFC &gt; 0)]
+  which(qlf_output_hits_withgn$PValue &lt; 0.05 
+             &amp; qlf_output_hits_withgn$logFC &gt; 0)]
 downregulated_genes &lt;- qlf_output_hits_withgn$gname[
-  which(qlf_output_hits$table$PValue &lt; 0.05 
-             &amp; qlf_output_hits$table$logFC &lt; 0)]
+  which(qlf_output_hits_withgn$PValue &lt; 0.05 
+             &amp; qlf_output_hits_withgn$logFC &lt; 0)]
 
 write.table(x=upregulated_genes,
             file=file.path("data","ca125_upregulated_genes.txt"),sep = "\t",
@@ -544,6 +547,12 @@ write.table(x=upregulated_genes,
 
 write.table(x=downregulated_genes,
             file=file.path("data","ca125_downregulated_genes.txt"),sep = "\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+
+
+write.table(x=data.frame(genename= qlf_output_hits_withgn$gname,F_stat= qlf_output_hits_withgn$rank),
+            file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 ```
 

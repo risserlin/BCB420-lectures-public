@@ -347,12 +347,15 @@ Create **thresholded** lists of genes.
 #merge gene names with the top hits
 qlf_output_hits_withgn <- merge(ca125_exp[,1:2],qlf_output_hits, by.x=1, by.y = 0)
 
+qlf_output_hits_withgn[,"rank"] <- -log(qlf_output_hits_withgn$PValue,base =10) * sign(qlf_output_hits_withgn$logFC)
+qlf_output_hits_withgn <- qlf_output_hits_withgn[order(qlf_output_hits_withgn$rank),]
+
 upregulated_genes <- qlf_output_hits_withgn$gname[
-  which(qlf_output_hits$table$PValue < 0.05 
-             & qlf_output_hits$table$logFC > 0)]
+  which(qlf_output_hits_withgn$PValue < 0.05 
+             & qlf_output_hits_withgn$logFC > 0)]
 downregulated_genes <- qlf_output_hits_withgn$gname[
-  which(qlf_output_hits$table$PValue < 0.05 
-             & qlf_output_hits$table$logFC < 0)]
+  which(qlf_output_hits_withgn$PValue < 0.05 
+             & qlf_output_hits_withgn$logFC < 0)]
 
 write.table(x=upregulated_genes,
             file=file.path("data","ca125_upregulated_genes.txt"),sep = "\t",
@@ -360,6 +363,12 @@ write.table(x=upregulated_genes,
 
 write.table(x=downregulated_genes,
             file=file.path("data","ca125_downregulated_genes.txt"),sep = "\t",
+            row.names = FALSE,col.names = FALSE,quote = FALSE)
+
+
+
+write.table(x=data.frame(genename= qlf_output_hits_withgn$gname,F_stat= qlf_output_hits_withgn$rank),
+            file=file.path("data","ca125_ranked_genelist.txt"),sep = "\t",
             row.names = FALSE,col.names = FALSE,quote = FALSE)
 ```
 
