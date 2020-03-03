@@ -11,3 +11,5 @@
 [Lecture 6 - Annotation Sources and Intro to ORA](https://risserlin.github.io/BCB420-lectures-public/lecture6_annotation_resources_and_prelim_ORA.html)
 
 [Lecture 7 - Recap and GSEA](https://risserlin.github.io/BCB420-lectures-public/lecture7_review_intro_to_GSEA.html)
+
+[Lecture 8 - Recap GSEA and Cytoscape](https://risserlin.github.io/BCB420-lectures-public/lecture8.html)
