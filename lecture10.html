@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>BCB420 - Computational Systems Biology</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ruth Isserlin" />
+    <meta name="date" content="2020-03-17" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="libs/example.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# BCB420 - Computational Systems Biology
+## Lecture 10 - Enrichment Map and other Cytoscape Apps
+### Ruth Isserlin
+### 2020-03-17
+
+---
+
+
+## Assignment #3 
+  * Data set Pathway and Network Analysis
+  * &lt;font size=5&gt; Due April 3, 2020! @ 13:00 &lt;/font&gt;
+
+## What to hand in?
+  * **html rendered RNotebook** - you should submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * Document your work and your code directly in the notebook.
+  * **Reference the paper associated with your data!**
+  * **Introduce your paper and your data again** 
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+  
+---
+
+## Outline for Today's lecture
+
+  * review of Enrichment map
+  * looking at Pathways in depth - Reactome app, Pathway commons, String and GeneMania
+  * Post analysis
+  * Enrichment Map Dark Matter
+  
+---
+
+.center[&lt;font size=10&gt;Enrichment Map&lt;/font&gt;]
+
+.pull-left[
+[Enrichment Map](http://apps.cytoscape.org/apps/enrichmentmap) is a [Cytoscape](https://cytoscape.org/) App that translates enrichment results from:
+  * [GSEA](https://www.gsea-msigdb.org/gsea/index.jsp), 
+  * [g:Profiler](https://biit.cs.ut.ee/gprofiler/), 
+  * [DAVID](https://david.ncifcrf.gov/), 
+  * [GREAT](http://great.stanford.edu/public/html/) or 
+  * [generic results](https://enrichmentmap.readthedocs.io/en/latest/FileFormats.html#generic-results-files)
+  
+into a network where nodes are gene sets and the connection between them are the genes that the sets have in common.
+
+]
+
+.pull-right[
+&lt;img src=./images/img_lecture10/enrichment_map_general.png&gt;
+]
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map&lt;/font&gt;]
+
+[Enrichment Map](http://apps.cytoscape.org/apps/enrichmentmap) is a [Cytoscape](https://cytoscape.org/) App that translates enrichment results from:
+  * [GSEA](https://www.gsea-msigdb.org/gsea/index.jsp), 
+  * [g:Profiler](https://biit.cs.ut.ee/gprofiler/), 
+  * [DAVID](https://david.ncifcrf.gov/), 
+  * [GREAT](http://great.stanford.edu/public/html/) or 
+  * [generic results](https://enrichmentmap.readthedocs.io/en/latest/FileFormats.html#generic-results-files)
+  
+into a network where nodes are gene sets and the connection between them are the genes that the sets have in common.
+
+
+The Enrichment Map takes a lot of different types of input but in the most basic sense it requires:
+  * An enrichment file - a table containing the genesets/pathways with associated statistics.
+  * (optional) Definition of the genesets - the set of genes that are associated with each geneset. (The make up of the genesets is **required** but is optional because some enrichment file formats include a column with the list of genes associated with the given geneset.)
+
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map Basics&lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/similaritycoef_explained.png&gt;
+
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map Details&lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/enrichmentmap_explanation1.png width="80%" height="80%"&gt;
+
+* Example subset of an Enrichment map
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map Details&lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/style_expanded.png&gt;
+
+* Current Visual Style contains all the default values specified by the Enrichment Map App
+  * Node size is mapped to geneset size - the more genes associated with a geneset the larger the node.
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map Details&lt;/font&gt;]
+
+
+* Default Enrichment Map Style:
+  * size of node corresponds to the size of the geneset
+  * colour of node corresponds to the phenotype and the p-value
+  * label of the node corresponds to the geneset description
+  * thickness of the edge corresponds to overlap statistic.  The more genes two nodes have in common the thicker the edge.
+
+
+&lt;img src=./images/img_lecture10/enrichmentmap_explanation1.png width="50%" height="50%"&gt;
+
+
+---
+
+.center[&lt;font size=10&gt;Enrichment Map Details - cont'd &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/heatmap.png&gt;
+
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/pathway_details.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Reactome &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/reactome_search.png&gt;
+
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Reactome &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/reactome1.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Reactome &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/reactome2.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Reactome &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/reactome3.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Reactome &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/reactome4.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/pathway_details.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway1.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway2.png width="70%" height="70%"&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway3.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway4.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway5.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - Wiki Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_wiki_pathway6.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/pathway_details.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway.png  width="70%" height="70%"&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway1.png &gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway1a.png  width="70%" height="70%"&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway2.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway3.png&gt;
+
+---
+
+.center[&lt;font size=10&gt;Pathway Details - GO and Other Pathways &lt;/font&gt;]
+
+&lt;img src=./images/img_lecture10/expand_go_pathway4.png&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"highlightSpans": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

@@ -1,0 +1,243 @@
+---
+title: "BCB420 - Computational Systems Biology"
+subtitle: "Lecture 10 - Enrichment Map and other Cytoscape Apps"
+author: "Ruth Isserlin"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: [default, ./libs/example.css]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      highlightSpans: true 
+      countIncrementalSlides: false
+bibliography: lecture6.bib
+---
+
+## Assignment #3 
+  * Data set Pathway and Network Analysis
+  * <font size=5> Due April 3, 2020! @ 13:00 </font>
+
+## What to hand in?
+  * **html rendered RNotebook** - you should submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * Document your work and your code directly in the notebook.
+  * **Reference the paper associated with your data!**
+  * **Introduce your paper and your data again** 
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+  
+---
+
+## Outline for Today's lecture
+
+  * review of Enrichment map
+  * looking at Pathways in depth - Reactome app, Pathway commons, String and GeneMania
+  * Post analysis
+  * Enrichment Map Dark Matter
+  
+---
+
+.center[<font size=10>Enrichment Map</font>]
+
+.pull-left[
+[Enrichment Map](http://apps.cytoscape.org/apps/enrichmentmap) is a [Cytoscape](https://cytoscape.org/) App that translates enrichment results from:
+  * [GSEA](https://www.gsea-msigdb.org/gsea/index.jsp), 
+  * [g:Profiler](https://biit.cs.ut.ee/gprofiler/), 
+  * [DAVID](https://david.ncifcrf.gov/), 
+  * [GREAT](http://great.stanford.edu/public/html/) or 
+  * [generic results](https://enrichmentmap.readthedocs.io/en/latest/FileFormats.html#generic-results-files)
+  
+into a network where nodes are gene sets and the connection between them are the genes that the sets have in common.
+
+]
+
+.pull-right[
+<img src=./images/img_lecture10/enrichment_map_general.png>
+]
+
+---
+
+.center[<font size=10>Enrichment Map</font>]
+
+[Enrichment Map](http://apps.cytoscape.org/apps/enrichmentmap) is a [Cytoscape](https://cytoscape.org/) App that translates enrichment results from:
+  * [GSEA](https://www.gsea-msigdb.org/gsea/index.jsp), 
+  * [g:Profiler](https://biit.cs.ut.ee/gprofiler/), 
+  * [DAVID](https://david.ncifcrf.gov/), 
+  * [GREAT](http://great.stanford.edu/public/html/) or 
+  * [generic results](https://enrichmentmap.readthedocs.io/en/latest/FileFormats.html#generic-results-files)
+  
+into a network where nodes are gene sets and the connection between them are the genes that the sets have in common.
+
+
+The Enrichment Map takes a lot of different types of input but in the most basic sense it requires:
+  * An enrichment file - a table containing the genesets/pathways with associated statistics.
+  * (optional) Definition of the genesets - the set of genes that are associated with each geneset. (The make up of the genesets is **required** but is optional because some enrichment file formats include a column with the list of genes associated with the given geneset.)
+
+
+---
+
+.center[<font size=10>Enrichment Map Basics</font>]
+
+<img src=./images/img_lecture10/similaritycoef_explained.png>
+
+
+---
+
+.center[<font size=10>Enrichment Map Details</font>]
+
+<img src=./images/img_lecture10/enrichmentmap_explanation1.png width="80%" height="80%">
+
+* Example subset of an Enrichment map
+
+---
+
+.center[<font size=10>Enrichment Map Details</font>]
+
+<img src=./images/img_lecture10/style_expanded.png>
+
+* Current Visual Style contains all the default values specified by the Enrichment Map App
+  * Node size is mapped to geneset size - the more genes associated with a geneset the larger the node.
+
+---
+
+.center[<font size=10>Enrichment Map Details</font>]
+
+
+* Default Enrichment Map Style:
+  * size of node corresponds to the size of the geneset
+  * colour of node corresponds to the phenotype and the p-value
+  * label of the node corresponds to the geneset description
+  * thickness of the edge corresponds to overlap statistic.  The more genes two nodes have in common the thicker the edge.
+
+
+<img src=./images/img_lecture10/enrichmentmap_explanation1.png width="50%" height="50%">
+
+
+---
+
+.center[<font size=10>Enrichment Map Details - cont'd </font>]
+
+<img src=./images/img_lecture10/heatmap.png>
+
+
+---
+
+.center[<font size=10>Pathway Details </font>]
+
+<img src=./images/img_lecture10/pathway_details.png>
+
+---
+
+.center[<font size=10>Pathway Details - Reactome </font>]
+
+<img src=./images/img_lecture10/reactome_search.png>
+
+
+---
+
+.center[<font size=10>Pathway Details - Reactome </font>]
+
+<img src=./images/img_lecture10/reactome1.png>
+
+---
+
+.center[<font size=10>Pathway Details - Reactome </font>]
+
+<img src=./images/img_lecture10/reactome2.png>
+
+---
+
+.center[<font size=10>Pathway Details - Reactome </font>]
+
+<img src=./images/img_lecture10/reactome3.png>
+
+---
+
+.center[<font size=10>Pathway Details - Reactome </font>]
+
+<img src=./images/img_lecture10/reactome4.png>
+
+---
+
+.center[<font size=10>Pathway Details </font>]
+
+<img src=./images/img_lecture10/pathway_details.png>
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway1.png>
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway2.png width="70%" height="70%">
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway3.png>
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway4.png>
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway5.png>
+
+---
+
+.center[<font size=10>Pathway Details - Wiki Pathways </font>]
+
+<img src=./images/img_lecture10/expand_wiki_pathway6.png>
+
+---
+
+.center[<font size=10>Pathway Details </font>]
+
+<img src=./images/img_lecture10/pathway_details.png>
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway.png  width="70%" height="70%">
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway1.png >
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway1a.png  width="70%" height="70%">
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway2.png>
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway3.png>
+
+---
+
+.center[<font size=10>Pathway Details - GO and Other Pathways </font>]
+
+<img src=./images/img_lecture10/expand_go_pathway4.png>
