@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>BCB420 - Computational Systems Biology</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ruth Isserlin" />
+    <meta name="date" content="2020-03-22" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="libs/example.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# BCB420 - Computational Systems Biology
+## Lecture 11 - Enrichment Map and other Cytoscape Apps cont’d
+### Ruth Isserlin
+### 2020-03-22
+
+---
+
+
+## Assignment #3 
+  * Data set Pathway and Network Analysis
+  * &lt;font size=5&gt; Due April 3, 2020! @ 13:00 &lt;/font&gt;
+
+## What to hand in?
+  * **html rendered RNotebook** - you should submit this through quercus
+  * Make sure the notebook and all associated code is checked into your github repo as I will be pulling all the repos at the deadline and using them to compile your code. - Your checked in code must replicate the handed in notebook.
+  * Document your work and your code directly in the notebook.
+  * **Reference the paper associated with your data!**
+  * **Introduce your paper and your data again** 
+  * You are allowed to use helper functions or methods but make sure when you source those files the paths to them are relative and that they are checked into your repo as well. 
+
+---
+
+## Outline for Today's lecture
+
+  * review of Enrichment map
+  * looking at Pathways in depth - Reactome app, Pathway commons, String and GeneMania
+  * **Post analysis**
+  * **Enrichment Map Dark Matter**
+  
+---
+
+&lt;img src=./images/img_lecture11/post_analysis1.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis2.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis3a.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis3.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis4.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis5.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis6.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis7.png&gt;
+
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis8.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/post_analysis9.png&gt;
+
+---
+## Post Analysis Summary
+
+&lt;img src=./images/img_lecture11/post_analysis2.png&gt;
+
+
+---
+
+&lt;img src=./images/img_lecture11/dark_matter1.png&gt;
+
+---
+
+&lt;img src=./images/img_lecture11/dark_matter2.png&gt;
+
+---
+
+## Dark Matter
+
+Files needed in order to conduct a dark matter analysis:
+
+1. Definitions of the genesets used in the analysis - gmt file.
+
+
+```r
+library(GSA)
+gmt_file &lt;- file.path(getwd(),"data",
+                    "Human_GOBP_AllPathways_no_GO_iea_February_01_2020_symbol.gmt")
+
+capture.output(genesets&lt;- GSA.read.gmt(gmt_file),file="gsa_load.out")
+
+names(genesets$genesets) &lt;- genesets$geneset.names
+```
+
+---
+
+## Dark Matter
+
+Files needed in order to conduct a dark matter analysis:
+1. Definitions of the genesets used in the analysis - gmt file.
+2. Expression file + rank file
+
+```r
+expression &lt;- read.table(file.path(getwd(),"data",
+                         "Supplementary_Table6_TCGA_OV_RNAseq_expression.txt"), 
+                         header = TRUE, sep = "\t", quote="\"",  
+                         stringsAsFactors = FALSE)
+ranks &lt;- read.table(file.path(getwd(),"data","Supplementary_Table2_MesenvsImmuno_RNASeq_ranks.rnk"), 
+                    header = TRUE, sep = "\t", quote="\"",  
+                    stringsAsFactors = FALSE)
+```
+
+---
+
+## Dark Matter
+
+Files needed in order to conduct a dark matter analysis:
+1. Definitions of the genesets used in the analysis - gmt file.
+2. Expression file
+3. GSEA results files - the na_pos and na_neg spreadsheets in GSEA results directories
+
+```r
+#get all the GSEA directories
+gsea_directories &lt;- list.files(path = file.path(getwd(),"data"), 
+                                 pattern = "\\.GseaPreranked")
+if(length(gsea_directories) == 1){
+  gsea_dir &lt;- file.path(getwd(),"data",gsea_directories[1])
+  #get the gsea result files
+  gsea_results_files &lt;- list.files(path = gsea_dir, 
+                                 pattern = "gsea_report_*.*.xls")
+  #there should be 2 gsea results files
+  enr_file1 &lt;- read.table(file.path(gsea_dir,gsea_results_files[1]), 
+                        header = TRUE, sep = "\t", quote="\"",  
+                        stringsAsFactors = FALSE,row.names=1)
+  enr_file2 &lt;- read.table(file.path(gsea_dir,gsea_results_files[1]), 
+                        header = TRUE, sep = "\t", quote="\"",  
+                        stringsAsFactors = FALSE,row.names=1)
+}
+```
+
+---
+
+## Dark Matter
+
+Collect the Data we need to calculate the dark matter from the above files:
+1. all genes in the expression set - already loaded above
+2. all genes in the enrichment results
+
+```r
+#get the genes from the set of enriched pathwasy (no matter what threshold)
+all_enr_genesets&lt;- c(rownames(enr_file1), rownames(enr_file2))
+genes_enr_gs &lt;- c()
+for(i in 1:length(all_enr_genesets)){
+  current_geneset &lt;- unlist(genesets$genesets[which(genesets$geneset.names %in% all_enr_genesets[i])]) 
+  genes_enr_gs &lt;- union(genes_enr_gs, current_geneset)
+}
+```
+
+---
+
+## Dark Matter
+
+Data we need to calculate the dark matter:
+1. all genes in the expression set - row names of the expression matrix
+2. all genes in the enrichment results
+3. all genes in the **significant enrichment results** - define your thresholds
+
+```r
+FDR_threshold &lt;- 0.001
+#get the genes from the set of enriched pathwasy (no matter what threshold)
+all_sig_enr_genesets&lt;- c(rownames(enr_file1)[which(enr_file1[,"FDR.q.val"]&lt;=FDR_threshold)], rownames(enr_file2)[which(enr_file2[,"FDR.q.val"]&lt;=FDR_threshold)])
+genes_sig_enr_gs &lt;- c()
+for(i in 1:length(all_sig_enr_genesets)){
+  current_geneset &lt;- unlist(genesets$genesets[which(genesets$geneset.names %in% all_sig_enr_genesets[i])]) 
+  genes_sig_enr_gs &lt;- union(genes_sig_enr_gs, current_geneset)
+}
+```
+
+---
+
+## Dark Matter
+
+Data we need to calculate the dark matter:
+1. all genes in the expression set - row names of the expression matrix
+2. all genes in the enrichment results
+3. all genes in the significant enrichment results - define your thresholds
+4. all genes in geneset file
+
+```r
+genes_all_gs &lt;- unique(unlist(genesets$genesets))
+```
+
+---
+
+## Dark Matter
+
+Data we need to calculate the dark matter:
+1. all genes in the expression set - row names of the expression matrix - There are 15196 unique genes in the expression file.
+2. all genes in the enrichment results - There are 11267 unique genes in the enrichment results.
+3. all genes in the significant enrichment results - There are 4773 unique genes in the enrichment results.
+4. all genes in geneset file - There are 16475 unique genes in the geneset file.
+
+---
+
+## Venn Diagram of Dark Matter Overlaps
+
+
+```r
+library(VennDiagram)
+
+A &lt;- genes_all_gs
+B &lt;- genes_enr_gs
+C &lt;- expression[,1]
+png(file.path(getwd(),"data","dark_matter_overlaps.png"))
+draw.triple.venn( area1=length(A), area2=length(B), area3 = length(C),
+                  n12 = length(intersect(A,B)), n13=length(intersect(A,C)),
+                  n23 = length(intersect(B,C)), 
+                  n123 = length(intersect(A,intersect(B,C))),
+                  category = c("all genesets","all enrichment results","expression"),
+                  fill = c("red","green","blue"),
+                  cat.col = c("red","green","blue")
+)
+```
+
+```
+## (polygon[GRID.polygon.1], polygon[GRID.polygon.2], polygon[GRID.polygon.3], polygon[GRID.polygon.4], polygon[GRID.polygon.5], polygon[GRID.polygon.6], text[GRID.text.7], text[GRID.text.8], text[GRID.text.9], text[GRID.text.10], text[GRID.text.11], text[GRID.text.12], text[GRID.text.13], text[GRID.text.14])
+```
+
+```r
+dev.off()
+```
+
+```
+## quartz_off_screen 
+##                 2
+```
+
+---
+
+## Dark matter - overlaps
+![](./data/dark_matter_overlaps.png)
+
+---
+
+## Dark Matter
+
+Get the set of genes that have no annotation
+
+```r
+genes_no_annotation &lt;- setdiff(expression[,1], genes_all_gs)
+```
+
+--
+
+Get the top ranked genes that have no annotation
+
+
+```r
+ranked_gene_no_annotation &lt;- ranks[which(ranks[,1] %in% genes_no_annotation),]
+```
+
+---
+
+## Top ten Mesenchymal Dark matter genes
+
+
+```r
+ranked_gene_no_annotation[1:10,]
+```
+
+```
+##    GeneName     rank
+## 1    IGDCC3 36.32958
+## 14   ZNF469 28.83028
+## 40   GLT8D2 24.77158
+## 53 KIAA1644 23.58145
+## 61  TSPAN18 22.71841
+## 74     LHFP 21.54415
+## 77    VGLL3 21.34833
+## 86    MEIS3 20.77773
+## 88  ZCCHC24 20.71234
+## 90  FAM198B 20.49151
+```
+
+---
+
+## IGDCC3 - Immunoglobulin superfamily DCC subclass member 3
+
+[Uniprot reference](uniprot.org/uniprot/Q8IVU1)
+
+![](./images/img_lecture11/uniprot_igdcc3.png)
+
+---
+
+&lt;img src=./images/img_lecture11/dark_matter2.png&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"highlightSpans": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
