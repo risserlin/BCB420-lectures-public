@@ -15,3 +15,5 @@
 [Lecture 8 - Recap GSEA and Cytoscape](https://risserlin.github.io/BCB420-lectures-public/lecture8.html)
 
 [lecture 10 - EM recap and expanding pathways](https://risserlin.github.io/BCB420-lectures-public/lecture10.html)
+
+[lecture 11 - EM post analysis and dark matter](https://risserlin.github.io/BCB420-lectures-public/lecture11.html)
